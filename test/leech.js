@@ -122,20 +122,20 @@ describe("attach", function () {
         it("watch the blockchain for market updates", function (done) {
             this.timeout(TIMEOUT*8);
             var updatedPrice, counter = 0;
-            leech.attach(config, function (err, updates, updatedPrice) {
+            leech.attach(config, function (err, updates, priceUpdate) {
                 assert.isNull(err);
                 assert.isAbove(updates, -2);
                 if (updates === -1) {
-                    assert.property(updatedPrice, "update");
-                    assert.property(updatedPrice, "market");
-                    assert.property(updatedPrice.update, "user");
-                    assert.property(updatedPrice.update, "marketId");
-                    assert.property(updatedPrice.update, "outcome");
-                    assert.property(updatedPrice.update, "price");
-                    assert.property(updatedPrice.update, "cost");
-                    assert.property(updatedPrice.update, "blockNumber");
-                    assert.isAbove(parseInt(updatedPrice.update.blockNumber), 0);
-                    assert.strictEqual(updatedPrice.update.outcome, outcome);
+                    assert.property(priceUpdate, "update");
+                    assert.property(priceUpdate, "market");
+                    assert.property(priceUpdate.update, "user");
+                    assert.property(priceUpdate.update, "marketId");
+                    assert.property(priceUpdate.update, "outcome");
+                    assert.property(priceUpdate.update, "price");
+                    assert.property(priceUpdate.update, "cost");
+                    assert.property(priceUpdate.update, "blockNumber");
+                    assert.isAbove(parseInt(priceUpdate.update.blockNumber), 0);
+                    assert.strictEqual(priceUpdate.update.outcome, outcome);
                     updatedPrice = true;
                 }
                 if (++counter >= maxNumPolls && updatedPrice) {
