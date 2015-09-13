@@ -1,6 +1,6 @@
 {
   "name": "marketeer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Augur market data preprocessor",
   "main": "index.js",
   "scripts": {

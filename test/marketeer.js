@@ -8,8 +8,7 @@
 var crypto = require("crypto");
 var abi = require("augur-abi");
 var assert = require("chai").assert;
-var MongoClient = require("mongodb").MongoClient;
-var marketeer = require("../");
+var mark = require("../");
 
 var TIMEOUT = 60000;
 var config = {
@@ -24,17 +23,17 @@ describe("lookup", function () {
 
     it("retrieve and verify document", function (done) {
         this.timeout(TIMEOUT);
-        var id = "0x" + crypto.randomBytes(32).toString("hex");
+        var id = abi.prefix_hex(crypto.randomBytes(32).toString("hex"));
         var doc = { _id: id, data: "booyah" };
-        MongoClient.connect(config.mongodb, function (err, db) {
+        mark.connect(config, function (err) {
             assert.isNull(err);
-            marketeer.upsert(db, doc, function (err, result) {
+            mark.upsert(doc, function (err, result) {
                 assert.isNull(err);
                 assert.isTrue(result);
-                marketeer.lookup(db, doc._id, function (err, result) {
+                mark.lookup(doc._id, function (err, result) {
                     assert.isNull(err);
                     assert.deepEqual(result, doc);
-                    db.close();
+                    mark.disconnect();
                     done();
                 });
             });
@@ -47,24 +46,24 @@ describe("upsert", function () {
 
     it("insert and update document", function (done) {
         this.timeout(TIMEOUT);
-        var id = "0x" + crypto.randomBytes(32).toString("hex");
+        var id = abi.prefix_hex(crypto.randomBytes(32).toString("hex"));
         var doc = { _id: id, data: "hello world" };
-        MongoClient.connect(config.mongodb, function (err, db) {
+        mark.connect(config, function (err) {
             assert.isNull(err);
-            marketeer.upsert(db, doc, function (err, result) {
+            mark.upsert(doc, function (err, result) {
                 assert.isNull(err);
                 assert.isTrue(result);
-                marketeer.lookup(db, doc._id, function (err, result) {
+                mark.lookup(doc._id, function (err, result) {
                     assert.isNull(err);
                     assert.deepEqual(result, doc);
                     doc.data = "goodbye world";
-                    marketeer.upsert(db, doc, function (err,result) {
+                    mark.upsert(doc, function (err,result) {
                         assert.isNull(err);
                         assert.isTrue(result);
-                        marketeer.lookup(db, doc._id, function (err, result) {
+                        mark.lookup(doc._id, function (err, result) {
                             assert.isNull(err);
                             assert.deepEqual(result, doc);
-                            db.close();
+                            mark.disconnect();
                             done();
                         });
                     });
@@ -79,30 +78,26 @@ describe("scan", function () {
 
     it("fetch market info from the blockchain and save to db", function (done) {
         this.timeout(TIMEOUT);
-        MongoClient.connect(config.mongodb, function (err, db) {
-            marketeer.scan(config, db, function (err, updates) {
+        mark.connect(config, function (err) {
+            assert.isNull(err);
+            mark.scan(config, function (err, updates) {
                 assert.isNull(err);
                 assert.strictEqual(updates, config.limit);
-                db.close();
+                mark.disconnect();
                 done();
             });
         });
     });
 
     it("fetch market info from the blockchain, set up db connection, then save to db", function (done) {
-        this.timeout(TIMEOUT*2);
-        marketeer.scan(config, function (err, updates) {
+        this.timeout(TIMEOUT);
+        mark.scan(config, function (err, updates) {
             assert.isNull(err);
             assert.strictEqual(updates, config.limit);
-            marketeer.scan(config, null, function (err, updates) {
-                assert.isNull(err);
-                assert.strictEqual(updates, config.limit);
-                assert.isTrue(marketeer.unwatch());
-                assert.isNull(marketeer.augur.filters.price_filter.id);
-                assert.isNull(marketeer.watcher);
-                assert.isNull(marketeer.db);
-                done();
-            });
+            mark.disconnect();
+            assert.isNull(mark.watcher);
+            assert.isNull(mark.db);
+            done();
         });
     });
 
@@ -111,11 +106,11 @@ describe("scan", function () {
 describe("watch", function () {
     if (config.priceFilter) config.ethereum = "http://127.0.0.1:8545";
 
-    marketeer.augur.bignumbers = false;
-    marketeer.augur.connect(config.ethereum);
+    mark.augur.bignumbers = false;
+    mark.augur.connect(config.ethereum);
 
-    var branch = marketeer.augur.branches.dev;
-    var markets = marketeer.augur.getMarkets(branch);
+    var branch = mark.augur.branches.dev;
+    var markets = mark.augur.getMarkets(branch);
     var marketId = markets[markets.length - 1];
     var outcome = "1";
     var amount = "2";
@@ -124,9 +119,9 @@ describe("watch", function () {
     it("watch the blockchain for market updates", function (done) {
         this.timeout(TIMEOUT*8);
         var updated, counter = 0;
-        marketeer.watch(config, function (err, updates, priceUpdate) {
+        mark.watch(config, function (err, updates, priceUpdate) {
             assert.isNull(err);
-            assert.isNotNull(marketeer.watcher);
+            assert.isNotNull(mark.watcher);
             assert.isAbove(updates, -2);
             if (updates === -1) {
                 assert.property(priceUpdate, "update");
@@ -142,19 +137,19 @@ describe("watch", function () {
                 updated = true;
             }
             if (++counter >= maxNumPolls && (!config.priceFilter || updated)) {
-                assert.isTrue(marketeer.unwatch());
-                assert.isNull(marketeer.augur.filters.price_filter.id);
-                assert.isNull(marketeer.augur.filters.price_filter.heartbeat);
-                assert.isNull(marketeer.augur.filters.contracts_filter.id);
-                assert.isNull(marketeer.augur.filters.block_filter.id);
-                assert.isNull(marketeer.watcher);
-                assert.isNull(marketeer.db);
+                assert.isTrue(mark.unwatch());
+                assert.isNull(mark.augur.filters.price_filter.id);
+                assert.isNull(mark.augur.filters.price_filter.heartbeat);
+                assert.isNull(mark.augur.filters.contracts_filter.id);
+                assert.isNull(mark.augur.filters.block_filter.id);
+                assert.isNull(mark.watcher);
+                assert.isNull(mark.db);
                 done();
             }
         });
         if (config.priceFilter) {
             setTimeout(function () {
-                marketeer.augur.buyShares({
+                mark.augur.buyShares({
                     branchId: branch,
                     marketId: marketId,
                     outcome: outcome,
@@ -170,10 +165,10 @@ describe("watch", function () {
                         assert.property(r, "blockNumber");
                         assert.isAbove(abi.bignum(r.blockNumber).toNumber(), 0);
                         assert(abi.bignum(r.from).eq(
-                            abi.bignum(marketeer.augur.coinbase)
+                            abi.bignum(mark.augur.coinbase)
                         ));
                         assert(abi.bignum(r.to).eq(
-                            abi.bignum(marketeer.augur.contracts.buyAndSellShares)
+                            abi.bignum(mark.augur.contracts.buyAndSellShares)
                         ));
                         assert.strictEqual(abi.bignum(r.value).toNumber(), 0);
                     },
