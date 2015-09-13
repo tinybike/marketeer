@@ -1,5 +1,9 @@
-leech
+Leech
 =====
+
+[![Build Status](https://travis-ci.org/AugurProject/leech.svg)](https://travis-ci.org/AugurProject/leech)
+[![Coverage Status](https://coveralls.io/repos/AugurProject/leech/badge.svg?branch=master&service=github)](https://coveralls.io/github/AugurProject/leech?branch=master)
+[![npm version](https://badge.fury.io/js/leech.svg)](http://badge.fury.io/js/leech)
 
 Leeches information from the Ethereum blockchain and stows it in a MongoDB.
 
