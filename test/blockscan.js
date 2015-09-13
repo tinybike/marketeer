@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Leech unit tests.
+ * Blockscan unit tests.
  * @author Jack Peterson (jack@tinybike.net)
  */
 
@@ -10,12 +10,12 @@ var crypto = require("crypto");
 var augur = require("augur.js");
 var assert = require("chai").assert;
 var MongoClient = require("mongodb").MongoClient;
-var leech = require("../");
+var blockscan = require("../");
 
 var TIMEOUT = 60000;
 var config = {
     ethereum: "http://eth1.augur.net",
-    mongodb: "mongodb://localhost:27017/leech?poolSize=5&noDelay=true&connectTimeoutMS=0&socketTimeoutMS=0",
+    mongodb: "mongodb://localhost:27017/blockscan?poolSize=5&noDelay=true&connectTimeoutMS=0&socketTimeoutMS=0",
     limit: 1,
     interval: 2500,
     priceFilter: true
@@ -29,10 +29,10 @@ describe("lookup", function () {
         var doc = { _id: id, data: "booyah" };
         MongoClient.connect(config.mongodb, function (err, db) {
             assert.isNull(err);
-            leech.upsert(db, doc, function (err, result) {
+            blockscan.upsert(db, doc, function (err, result) {
                 assert.isNull(err);
                 assert.isTrue(result);
-                leech.lookup(db, doc._id, function (err, result) {
+                blockscan.lookup(db, doc._id, function (err, result) {
                     assert.isNull(err);
                     assert.deepEqual(result, doc);
                     db.close();
@@ -52,17 +52,17 @@ describe("upsert", function () {
         var doc = { _id: id, data: "hello world" };
         MongoClient.connect(config.mongodb, function (err, db) {
             assert.isNull(err);
-            leech.upsert(db, doc, function (err, result) {
+            blockscan.upsert(db, doc, function (err, result) {
                 assert.isNull(err);
                 assert.isTrue(result);
-                leech.lookup(db, doc._id, function (err, result) {
+                blockscan.lookup(db, doc._id, function (err, result) {
                     assert.isNull(err);
                     assert.deepEqual(result, doc);
                     doc.data = "goodbye world";
-                    leech.upsert(db, doc, function (err,result) {
+                    blockscan.upsert(db, doc, function (err,result) {
                         assert.isNull(err);
                         assert.isTrue(result);
-                        leech.lookup(db, doc._id, function (err, result) {
+                        blockscan.lookup(db, doc._id, function (err, result) {
                             assert.isNull(err);
                             assert.deepEqual(result, doc);
                             db.close();
@@ -76,12 +76,12 @@ describe("upsert", function () {
 
 });
 
-describe("suck", function () {
+describe("scan", function () {
 
     it("fetch market info from the blockchain and save to db", function (done) {
         this.timeout(TIMEOUT);
         MongoClient.connect(config.mongodb, function (err, db) {
-            leech.suck(config, db, function (err, updates) {
+            blockscan.scan(config, db, function (err, updates) {
                 assert.isNull(err);
                 assert.strictEqual(updates, config.limit);
                 db.close();
@@ -92,13 +92,13 @@ describe("suck", function () {
 
     it("fetch market info from the blockchain, set up db connection, then save to db", function (done) {
         this.timeout(TIMEOUT*2);
-        leech.suck(config, function (err, updates) {
+        blockscan.scan(config, function (err, updates) {
             assert.isNull(err);
             assert.strictEqual(updates, config.limit);
-            leech.suck(config, null, function (err, updates) {
+            blockscan.scan(config, null, function (err, updates) {
                 assert.isNull(err);
                 assert.strictEqual(updates, config.limit);
-                leech.db.close();
+                blockscan.db.close();
                 done();
             });
         });
@@ -106,7 +106,7 @@ describe("suck", function () {
 
 });
 
-describe("attach", function () {
+describe("watch", function () {
     if (!process.env.CONTINUOUS_INTEGRATION) {
         config.ethereum = "http://127.0.0.1:8545";
 
@@ -122,7 +122,7 @@ describe("attach", function () {
         it("watch the blockchain for market updates", function (done) {
             this.timeout(TIMEOUT*8);
             var updatedPrice, counter = 0;
-            leech.attach(config, function (err, updates, priceUpdate) {
+            blockscan.watch(config, function (err, updates, priceUpdate) {
                 assert.isNull(err);
                 assert.isAbove(updates, -2);
                 if (updates === -1) {
@@ -139,7 +139,7 @@ describe("attach", function () {
                     updatedPrice = true;
                 }
                 if (++counter >= maxNumPolls && updatedPrice) {
-                    leech.db.close();
+                    blockscan.db.close();
                     done();
                 }
             });

@@ -12,7 +12,7 @@ var MongoClient = require("mongodb").MongoClient;
 var NO = 1;
 var YES = 2;
 
-var leech = {
+var blockscan = {
 
     db: null,
 
@@ -65,7 +65,7 @@ var leech = {
         return marketDoc;
     },
 
-    suck: function (config, db, callback) {
+    scan: function (config, db, callback) {
         var self = this;
         config = config || {};
         if (db && typeof db === "function" && callback === undefined) {
@@ -97,12 +97,12 @@ var leech = {
                     throw err;
                 }
                 self.db = db;
-                self.suck(config, db, callback);
+                self.scan(config, db, callback);
             });
         }
     },
 
-    attach: function (config, callback) {
+    watch: function (config, callback) {
         var self = this;
         config = config || {};
         MongoClient.connect(config.mongodb, function (err, db) {
@@ -111,7 +111,7 @@ var leech = {
                 throw err;
             }
             self.db = db;
-            self.suck(config, db, function (err) {
+            self.scan(config, db, function (err) {
                 if (err) {
                     if (callback) return callback(err);
                     throw err;
@@ -133,10 +133,10 @@ var leech = {
                         })({ update: update, market: marketDoc });
                     }
                 });
-                var suckInterval = setInterval(function () {
-                    self.suck(config, db, function (err, updates) {
+                var scanInterval = setInterval(function () {
+                    self.scan(config, db, function (err, updates) {
                         if (err) {
-                            clearInterval(suckInterval);
+                            clearInterval(scanInterval);
                             if (callback) return callback(err);
                             throw err;
                         }
@@ -150,6 +150,6 @@ var leech = {
 
 };
 
-process.on("exit", function () { if (leech.db) leech.db.close(); });
+process.on("exit", function () { if (blockscan.db) blockscan.db.close(); });
 
-module.exports = leech;
+module.exports = blockscan;

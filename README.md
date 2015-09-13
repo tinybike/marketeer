@@ -1,39 +1,39 @@
-Leech
-=====
+Blockscan
+=========
 
-[![Build Status](https://travis-ci.org/AugurProject/leech.svg)](https://travis-ci.org/AugurProject/leech)
-[![Coverage Status](https://coveralls.io/repos/AugurProject/leech/badge.svg?branch=master&service=github)](https://coveralls.io/github/AugurProject/leech?branch=master)
-[![npm version](https://badge.fury.io/js/leech.svg)](http://badge.fury.io/js/leech)
+[![Build Status](https://travis-ci.org/AugurProject/blockscan.svg)](https://travis-ci.org/AugurProject/blockscan)
+[![Coverage Status](https://coveralls.io/repos/AugurProject/blockscan/badge.svg?branch=master&service=github)](https://coveralls.io/github/AugurProject/blockscan?branch=master)
+[![npm version](https://badge.fury.io/js/blockscan.svg)](http://badge.fury.io/js/blockscan)
 
-Leeches information from the Ethereum blockchain and stows it in a MongoDB.
+Reads data from the Ethereum blockchain and stows it in a MongoDB.
 
 Installation
 ------------
 
-    $ npm install leech
+    $ npm install blockscan
 
 Usage
 -----
 ```javascript
-var leech = require("leech");
+var blockscan = require("blockscan");
 ```
-`leech.suck` fetches up-to-date data for all Augur markets from the Ethereum blockchain, and stores it in a MongoDB:
+`blockscan.scan` fetches up-to-date data for all Augur markets from the Ethereum blockchain, and stores it in a MongoDB:
 ```javascript
 var config = {
     ethereum: "http://eth1.augur.net",
-    mongodb: "mongodb://localhost:27017/leech"
+    mongodb: "mongodb://localhost:27017/blockscan"
 };
-leech.suck(config, function (err, numMarketsUpdated) {
+blockscan.scan(config, function (err, numMarketsUpdated) {
     if (err) throw err;
     console.log("Oh happy day!", numMarketsUpdated, "have been updated!");
     // fun times here
 });
 ```
-If you only want the most recently-created markets, use the `config.limit` option.  For example, to only suck the five most recent markets, set `config.limit = 5`.
+If you only want the most recently-created markets, use the `config.limit` option.  For example, to only scan the five most recent markets, set `config.limit = 5`.
 
-`leech.attach` creates a persistent blockchain listener, which does a market information `suck` periodically.  (The default is every five minutes; this can be modified by editing `config.interval`.)  If you set `config.priceFilter = true`, it will also create a price filter which listens for updates to market prices, and does an extra `suck` for markets which show up in the filter.
+`blockscan.watch` creates a persistent blockchain listener, which does a market information `scan` periodically.  (The default is every five minutes; this can be modified by editing `config.interval`.)  If you set `config.priceFilter = true`, it will also create a price filter which listens for updates to market prices, and does an extra `scan` for markets which show up in the filter.
 ```javascript
-leech.attach(config, function (err, numMarketsUpdated) {
+blockscan.watch(config, function (err, numMarketsUpdated) {
     if (err) throw err;
     console.log("Oh happy day!", numMarketsUpdated, "have been updated!");
     // fun times here
