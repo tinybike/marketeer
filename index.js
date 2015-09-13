@@ -28,7 +28,7 @@ var marketeer = {
         });
     },
 
-    disconnect: function (callback) {
+    disconnect: function () {
         this.db.close();
         this.db = null;
     },
