@@ -1,7 +1,7 @@
 {
-  "name": "blockscan",
+  "name": "marketeer",
   "version": "0.1.0",
-  "description": "Reads data from the Ethereum blockchain",
+  "description": "Augur market data preprocessor",
   "main": "index.js",
   "scripts": {
     "test": "mocha",
@@ -9,19 +9,20 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AugurProject/blockscan.git"
+    "url": "git+https://github.com/AugurProject/marketeer.git"
   },
   "author": "Jack Peterson <jack@tinybike.net>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/AugurProject/blockscan/issues"
+    "url": "https://github.com/AugurProject/marketeer/issues"
   },
-  "homepage": "https://github.com/AugurProject/blockscan#readme",
+  "homepage": "https://github.com/AugurProject/marketeer#readme",
   "dependencies": {
     "augur.js": "AugurProject/augur.js",
     "mongodb": "^2.0.42"
   },
   "devDependencies": {
+    "augur-abi": "AugurProject/augur-abi",
     "chai": "^3.2.0",
     "coveralls": "^2.11.4",
     "istanbul": "^0.3.19",

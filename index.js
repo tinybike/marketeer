@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Watches and records the Ethereum blockchain.
  * @author Jack Peterson (jack@tinybike.net)
@@ -12,9 +11,13 @@ var MongoClient = require("mongodb").MongoClient;
 var NO = 1;
 var YES = 2;
 
-var blockscan = {
+var marketeer = {
 
     db: null,
+
+    augur: augur,
+
+    watcher: null,
 
     lookup: function (db, market, callback) {
         db.collection("markets").findOne({ _id: market }, function (err, result) {
@@ -39,26 +42,26 @@ var blockscan = {
 
     collect: function (market) {
         var marketDoc, marketInfo, numEvents, participantNumber, events;
-        numEvents = augur.getNumEvents(market);
+        numEvents = this.augur.getNumEvents(market);
         if (numEvents) {
-            marketInfo = augur.getMarketInfo(market);
-            participantNumber = augur.getCurrentParticipantNumber(market);
+            marketInfo = this.augur.getMarketInfo(market);
+            participantNumber = this.augur.getCurrentParticipantNumber(market);
             marketDoc = {
                 _id: market,
-                description: augur.getDescription(market),
+                description: this.augur.getDescription(market),
                 shares: {
-                    yes: augur.getSharesPurchased(market, YES),
-                    no: augur.getSharesPurchased(market, NO)
+                    yes: this.augur.getSharesPurchased(market, YES),
+                    no: this.augur.getSharesPurchased(market, NO)
                 },
                 events: [],
                 fee: parseInt(marketInfo[4])
             };
-            events = augur.getMarketEvents(market);
+            events = this.augur.getMarketEvents(market);
             for (var j = 0; j < numEvents; ++j) {
                 marketDoc.events.push({
                     _id: events[j],
-                    description: augur.getDescription(events[j]),
-                    expiration: augur.getEventInfo(events[j])[1]
+                    description: this.augur.getDescription(events[j]),
+                    expiration: this.augur.getEventInfo(events[j])[1]
                 });
             }
         }
@@ -73,9 +76,9 @@ var blockscan = {
             db = undefined;
         }
         if (db && typeof db === "object") {
-            augur.connect(config.ethereum);
+            this.augur.connect(config.ethereum);
             var updates = 0;
-            var markets = augur.getMarkets(augur.branches.dev);
+            var markets = this.augur.getMarkets(this.augur.branches.dev);
             var numMarkets = markets.length;
             if (config.limit && config.limit < numMarkets) {
                 markets = markets.slice(numMarkets-config.limit, numMarkets);
@@ -116,8 +119,8 @@ var blockscan = {
                     if (callback) return callback(err);
                     throw err;
                 }
-                augur.connect(config.ethereum);
-                augur.filters.listen({
+                self.augur.connect(config.ethereum);
+                self.augur.filters.listen({
                     price: function (update) {
                         var marketDoc = self.collect(update.marketId);
                         (function (updated) {
@@ -133,10 +136,10 @@ var blockscan = {
                         })({ update: update, market: marketDoc });
                     }
                 });
-                var scanInterval = setInterval(function () {
+                self.watcher = setInterval(function () {
                     self.scan(config, db, function (err, updates) {
                         if (err) {
-                            clearInterval(scanInterval);
+                            clearInterval(self.watcher);
                             if (callback) return callback(err);
                             throw err;
                         }
@@ -146,10 +149,26 @@ var blockscan = {
                 }, config.interval || 300000); // default interval: 5 minutes
             });
         });
+    },
+
+    unwatch: function () {
+        if (this.augur.filters.price_filter.id) {
+            this.augur.filters.ignore(true);
+        }
+        if (this.watcher) {
+            clearInterval(this.watcher);
+            this.watcher = null;
+        }
+        if (this.db) {
+            this.db.close();
+            this.db = null;
+        }
+        return !(this.watcher && this.augur.filters.price_filter.id &&
+                 this.augur.filters.price_filter.heartbeat && this.db);
     }
 
 };
 
-process.on("exit", function () { if (blockscan.db) blockscan.db.close(); });
+process.on("exit", function () { if (marketeer.db) marketeer.db.close(); });
 
-module.exports = blockscan;
+module.exports = marketeer;
