@@ -316,19 +316,21 @@ module.exports = {
                 });
             }
             (function pulse() {
-                self.scan(config, function (err, updates) {
-                    if (err) {
-                        if (callback) return callback(err);
-                        throw err;
+                if (config.scan) {
+                    self.scan(config, function (err, updates) {
+                        if (err) {
+                            if (callback) return callback(err);
+                            throw err;
+                        }
+                        if (callback) return callback(null, updates);
+                        console.log(
+                            (new Date()).toString() + ":",
+                            updates, "market(s) updated"
+                        );
+                    });
+                    if (config.interval) {
+                        self.watcher = setTimeout(pulse, config.interval || INTERVAL);
                     }
-                    if (callback) return callback(null, updates);
-                    console.log(
-                        (new Date()).toString() + ":",
-                        updates, "market(s) updated"
-                    );
-                });
-                if (config.interval) {
-                    self.watcher = setTimeout(pulse, config.interval || INTERVAL);
                 }
             })();
         });

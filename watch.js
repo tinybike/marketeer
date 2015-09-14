@@ -10,7 +10,8 @@ var config = {
     ethereum: "http://127.0.0.1:8545",
     mongodb: "mongodb://localhost:27017/marketeer?poolSize=5&noDelay=true&connectTimeoutMS=0&socketTimeoutMS=0",
     filtering: true,
-    interval: 0
+    interval: 0,
+    scan: false
 };
 
 mark.debug = false;

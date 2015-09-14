@@ -16,6 +16,7 @@ var config = {
     mongodb: "mongodb://localhost:27017/marketeer?poolSize=5&noDelay=true&connectTimeoutMS=0&socketTimeoutMS=0",
     limit: 2,
     interval: 2500,
+    scan: true,
     filtering: !process.env.CONTINUOUS_INTEGRATION
 };
 
