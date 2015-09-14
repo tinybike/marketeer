@@ -94,6 +94,7 @@ describe("upsert", function () {
 });
 
 describe("scan", function () {
+    if (config.filtering) config.ethereum = "http://127.0.0.1:8545";
 
     it("fetch market info from the blockchain and save to db", function (done) {
         this.timeout(TIMEOUT);
