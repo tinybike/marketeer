@@ -62,48 +62,64 @@ module.exports = {
 
     collect: function (market, callback) {
         var self = this;
+        var doc = { _id: market, events: [] };
         this.augur.getNumEvents(market, function (numEvents) {
             if (numEvents && !numEvents.error) {
-                self.augur.getMarketInfo(market, function (marketInfo) {
-                    self.augur.getDescription(market, function (marketDescription) {
-                        self.augur.getSharesPurchased(market, 2, function (yesShares) {
-                            self.augur.getSharesPurchased(market, 1, function (noShares) {
-                                var doc = {
-                                    _id: market,
-                                    description: marketDescription,
-                                    shares: {
-                                        yes: yesShares,
-                                        no: noShares
-                                    },
-                                    events: [],
-                                    fee: marketInfo[4].toString()
-                                };
-                                self.augur.getMarketEvents(market, function (events) {
-                                    async.each(events, function (thisEvent, nextEvent) {
-                                        self.augur.getDescription(thisEvent, function (eventDescription) {
-                                            self.augur.getEventInfo(thisEvent, function (eventInfo) {
-                                                doc.events.push({
-                                                    _id: thisEvent,
-                                                    description: eventDescription,
-                                                    expiration: eventInfo[1]
+                doc.numEvents = numEvents;
+                self.augur.getTradingFee(market, function (tradingFee) {
+                    if (tradingFee && !tradingFee.error) {
+                        doc.tradingFee = tradingFee;
+                        self.augur.getDescription(market, function (marketDescription) {
+                            if (marketDescription && !marketDescription.error) {
+                                doc.description = marketDescription;
+                                self.augur.getSharesPurchased(market, 2, function (yesShares) {
+                                    if (yesShares && !yesShares.error) {
+                                        doc.shares = { yes: yesShares };
+                                        self.augur.getSharesPurchased(market, 1, function (noShares) {
+                                            if (noShares && !noShares.error) {
+                                                doc.shares.no = noShares;
+                                                self.augur.getMarketEvents(market, function (events) {
+                                                    if (events && !events.error) {
+                                                        async.each(events, function (thisEvent, nextEvent) {
+                                                            self.augur.getDescription(thisEvent, function (eventDescription) {
+                                                                var eventDoc = { _id: thisEvent };
+                                                                if (eventDescription && !eventDescription.error) {
+                                                                    eventDoc.description = eventDescription;
+                                                                    self.augur.getExpiration(thisEvent, function (expiration) {
+                                                                        if (expiration && !expiration.error) {
+                                                                            eventDoc.expiration = expiration;
+                                                                            doc.events.push(eventDoc);
+                                                                            nextEvent();
+                                                                        }
+                                                                    });
+                                                                }
+                                                            });
+                                                        }, function (err) {
+                                                            if (err) console.error(err);
+                                                            return callback(null, doc);
+                                                        });
+                                                    } else {
+                                                        return callback(null, doc);
+                                                    }
                                                 });
-                                                nextEvent();
-                                            });
+                                            } else {
+                                                return callback(null, doc);
+                                            }
                                         });
-                                    }, function (err) {
-                                        if (err) {
-                                            if (self.debug) console.error(err);
-                                            callback(null, { _id: market });
-                                        }
-                                        callback(null, doc);
-                                    });
+                                    } else {
+                                        return callback(null, doc);
+                                    }
                                 });
-                            });
+                            } else {
+                                return callback(null, doc);
+                            }
                         });
-                    });
+                    } else {
+                        return callback(null, doc);
+                    }
                 });
             } else {
-                callback(null, { _id: market });
+                return callback(null, doc);
             }
         });
     },
