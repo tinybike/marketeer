@@ -23,19 +23,19 @@ var config = {
     ethereum: "http://eth1.augur.net",
     mongodb: "mongodb://localhost:27017/marketeer"
 };
-marketeer.scan(config, function (err, numMarketsUpdated) {
+marketeer.scan(config, function (err, numUpdates) {
     if (err) throw err;
-    console.log("Oh happy day!", numMarketsUpdated, "have been updated!");
+    console.log("Oh happy day!", numUpdates, "markets have been updated!");
     // fun times here
 });
 ```
 If you only want the most recently-created markets, use the `config.limit` option.  For example, to only scan the five most recent markets, set `config.limit = 5`.
 
-`marketeer.watch` creates a persistent blockchain listener, which does a market information `scan` periodically.  (The default is every five minutes; this can be modified by editing `config.interval`.)  If you set `config.priceFilter = true`, it will also create a price filter which listens for updates to market prices, and does an extra `scan` for markets which show up in the filter.
+`marketeer.watch` creates a persistent blockchain listener, which does a market information `scan` periodically.  (The default is every 30 minutes; this can be modified by editing `config.interval`.)  If you set `config.filtering = true`, it will also create contracts and price filters which listen for Augur contract transactions and updates to market prices, respectively.  It then collects the most recent info for markets which show up in the filter(s).
 ```javascript
-marketeer.watch(config, function (err, numMarketsUpdated) {
+marketeer.watch(config, function (err, numUpdates) {
     if (err) throw err;
-    console.log("Oh happy day!", numMarketsUpdated, "have been updated!");
+    console.log("Oh happy day!", numUpdates, "markets have been updated!");
     // fun times here
 });
 ```

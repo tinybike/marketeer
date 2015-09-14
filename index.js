@@ -5,9 +5,14 @@
 
 "use strict";
 
+var async = require("async");
 var MongoClient = require("mongodb").MongoClient;
 
-var marketeer = {
+var INTERVAL = 1800000; // default update interval (30 minutes)
+
+module.exports = {
+
+    debug: false,
 
     db: null,
 
@@ -23,6 +28,7 @@ var marketeer = {
                 throw err;
             }
             self.db = db;
+            self.augur.bignumbers = false;
             self.augur.connect(config.ethereum);
             if (callback) callback(null);
         });
@@ -54,31 +60,52 @@ var marketeer = {
         });
     },
 
-    collect: function (market) {
-        var doc, marketInfo, numEvents, events;
-        numEvents = this.augur.getNumEvents(market);
-        if (numEvents) {
-            marketInfo = this.augur.getMarketInfo(market);
-            doc = {
-                _id: market,
-                description: this.augur.getDescription(market),
-                shares: {
-                    yes: this.augur.getSharesPurchased(market, 2),
-                    no: this.augur.getSharesPurchased(market, 1)
-                },
-                events: [],
-                fee: parseInt(marketInfo[4])
-            };
-            events = this.augur.getMarketEvents(market);
-            for (var j = 0; j < numEvents; ++j) {
-                doc.events.push({
-                    _id: events[j],
-                    description: this.augur.getDescription(events[j]),
-                    expiration: this.augur.getEventInfo(events[j])[1]
+    collect: function (market, callback) {
+        var self = this;
+        this.augur.getNumEvents(market, function (numEvents) {
+            if (numEvents && !numEvents.error) {
+                self.augur.getMarketInfo(market, function (marketInfo) {
+                    self.augur.getDescription(market, function (marketDescription) {
+                        self.augur.getSharesPurchased(market, 2, function (yesShares) {
+                            self.augur.getSharesPurchased(market, 1, function (noShares) {
+                                var doc = {
+                                    _id: market,
+                                    description: marketDescription,
+                                    shares: {
+                                        yes: yesShares,
+                                        no: noShares
+                                    },
+                                    events: [],
+                                    fee: parseInt(marketInfo[4])
+                                };
+                                self.augur.getMarketEvents(market, function (events) {
+                                    async.each(events, function (thisEvent, nextEvent) {
+                                        self.augur.getDescription(thisEvent, function (eventDescription) {
+                                            self.augur.getEventInfo(thisEvent, function (eventInfo) {
+                                                doc.events.push({
+                                                    _id: thisEvent,
+                                                    description: eventDescription,
+                                                    expiration: eventInfo[1]
+                                                });
+                                                nextEvent();
+                                            });
+                                        });
+                                    }, function (err) {
+                                        if (err) {
+                                            if (self.debug) console.error(err);
+                                            callback(null, { _id: market });
+                                        }
+                                        callback(null, doc);
+                                    });
+                                });
+                            });
+                        });
+                    });
                 });
+            } else {
+                callback(null, { _id: market });
             }
-        }
-        return doc;
+        });
     },
 
     scan: function (config, callback) {
@@ -86,22 +113,31 @@ var marketeer = {
         config = config || {};
         if (this.db && typeof this.db === "object") {
             this.augur.getMarkets(this.augur.branches.dev, function (markets) {
-                function upserted(err) {
-                    if (err) {
-                        if (callback) return callback(err);
-                        throw err;
-                    }
-                    if (++updates === numMarkets) callback(null, updates);
-                }
                 var numMarkets = markets.length;
-                var updates = 0;
                 if (config.limit && config.limit < numMarkets) {
                     markets = markets.slice(numMarkets - config.limit, numMarkets);
                     numMarkets = config.limit;
                 }
-                for (var i = 0; i < numMarkets; ++i) {
-                    self.upsert(self.collect(markets[i]), upserted);
+                if (self.debug) {
+                    console.log("Scanning", numMarkets, "markets...");
                 }
+                var updates = 0;
+                async.each(markets, function (market, nextMarket) {
+                    self.collect(market, function (err, doc) {
+                        if (err) return nextMarket(err);
+                        if (doc) self.upsert(doc, function (err) {
+                            ++updates;
+                            nextMarket(err);
+                        });
+                    });
+                }, function (err) {
+                    if (err) {
+                        // if (callback) return callback(err);
+                        // throw err;
+                        return console.error(err);
+                    }
+                    callback(err, updates);
+                });
             });
         } else {
             this.connect(config, function (err) {
@@ -123,49 +159,87 @@ var marketeer = {
                 if (callback) return callback(err);
                 throw err;
             }
-            self.scan(config, function (err) {
-                if (err) {
-                    if (callback) return callback(err);
-                    throw err;
-                }
-                self.augur.connect(config.ethereum);
+            if (self.debug) console.log("Connected");
+            if (config.filtering) {
                 self.augur.filters.listen({
                     price: function (update) {
-                        var marketDoc = self.collect(update.marketId);
-                        (function (updated) {
-                            self.upsert(updated.market, function (err, success) {
-                                updated.success = success;
-                                if (err) {
-                                    if (callback) return callback(err);
-                                    throw err;
-                                }
-                                if (callback) return callback(null, -1, updated);
-                                console.log(updated);
+                        // { user: '0x00000000000000000000000005ae1d0ca6206c6168b42efcd1fbe0ed144e821b',
+                        //   marketId: '-0xcaa8317a2d53b432c94180c591f09c30594e72cb6f747ef12be1bb5504c664bc',
+                        //   outcome: '1',
+                        //   price: '1.00000000000000002255',
+                        //   cost: '-1.00000000000000008137',
+                        //   blockNumber: '4722' }
+                        self.collect(update.marketId, function (err, doc) {
+                            if (err) return console.error(err);
+                            (function (updated) {
+                                self.upsert(updated.market, function (err, success) {
+                                    updated.success = success;
+                                    if (err) return console.error(err);
+                                    if (callback) return callback(null, -1, updated);
+                                    console.log(updated);
+                                });
+                            })({ update: update, market: doc });
+                        });
+                    },
+                    contracts: function (tx) {
+                        // { address: '0xc1c4e2f32e4b84a60b8b7983b6356af4269aab79',
+                        //   topics: 
+                        //    [ '0x1a653a04916ffd3d6f74d5966492bda358e560be296ecf5307c2e2c2fdedd35a',
+                        //      '0x00000000000000000000000005ae1d0ca6206c6168b42efcd1fbe0ed144e821b',
+                        //      '0x3557ce85d2ac4bcd36be7f3a6e0f63cfa6b18d34908b810ed41e44aafb399b44',
+                        //      '0x0000000000000000000000000000000000000000000000000000000000000001' ],
+                        //   data: 
+                        //    [ '0x000000000000000000000000000000000000000000000001000000000000d330',
+                        //      '0xfffffffffffffffffffffffffffffffffffffffffffffffeffffffffffffffa3' ],
+                        //   blockNumber: '0x110d',
+                        //   logIndex: '0x0',
+                        //   blockHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+                        //   transactionHash: '0x8481c76a1f88a203191c1cd1942963ff9f1ea31b1db02f752771fef30133798e',
+                        //   transactionIndex: '0x0' }
+                        if (tx && tx.topics && tx.topics.constructor === Array && tx.topics.length >= 3) {
+                            self.collect(tx.topics[2], function (err, doc) {
+                                if (err) return console.error(err);
+                                (function (updated) {
+                                    self.upsert(updated.market, function (err, success) {
+                                        updated.success = success;
+                                        if (err) return console.error(err);
+                                        if (callback) return callback(null, -2, updated);
+                                        console.log(updated);
+                                    });
+                                })({ tx: tx, market: doc });
                             });
-                        })({ update: update, market: marketDoc });
+                        }
                     }
                 });
-                self.watcher = setInterval(function () {
-                    self.scan(config, function (err, updates) {
-                        if (err) {
-                            clearInterval(self.watcher);
-                            if (callback) return callback(err);
-                            throw err;
-                        }
-                        if (callback) return callback(null, updates);
-                        console.log((new Date()).toString() + ":", updates, "markets updated");
-                    });
-                }, config.interval || 300000); // default interval: 5 minutes
-            });
+            }
+            var watcher = function () {
+                self.scan(config, function (err, updates) {
+                    if (err) {
+                        if (callback) return callback(err);
+                        throw err;
+                    }
+                    if (callback) return callback(null, updates);
+                    console.log(
+                        (new Date()).toString() + ":",
+                        updates, "market(s) updated"
+                    );
+                });
+                if (config.interval) {
+                    self.watcher = setTimeout(watcher, config.interval || INTERVAL);
+                }
+            };
+            watcher();
         });
     },
 
     unwatch: function () {
-        if (this.augur.filters.price_filter.id) {
+        if (this.augur.filters.price_filter.id ||
+            this.augur.filters.contracts_filter.id)
+        {
             this.augur.filters.ignore(true);
         }
         if (this.watcher) {
-            clearInterval(this.watcher);
+            clearTimeout(this.watcher);
             this.watcher = null;
         }
         if (this.db) {
@@ -177,7 +251,3 @@ var marketeer = {
     }
 
 };
-
-process.on("exit", function () { if (marketeer.db) marketeer.db.close(); });
-
-module.exports = marketeer;

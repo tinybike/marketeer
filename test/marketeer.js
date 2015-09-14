@@ -14,9 +14,9 @@ var TIMEOUT = 60000;
 var config = {
     ethereum: "http://eth1.augur.net",
     mongodb: "mongodb://localhost:27017/marketeer?poolSize=5&noDelay=true&connectTimeoutMS=0&socketTimeoutMS=0",
-    limit: 3,
+    limit: 1,
     interval: 2500,
-    priceFilter: !process.env.CONTINUOUS_INTEGRATION
+    filtering: !process.env.CONTINUOUS_INTEGRATION
 };
 
 describe("lookup", function () {
@@ -104,7 +104,7 @@ describe("scan", function () {
 });
 
 describe("watch", function () {
-    if (config.priceFilter) config.ethereum = "http://127.0.0.1:8545";
+    if (config.filtering) config.ethereum = "http://127.0.0.1:8545";
 
     mark.augur.bignumbers = false;
     mark.augur.connect(config.ethereum);
@@ -114,7 +114,7 @@ describe("watch", function () {
     var marketId = markets[markets.length - 1];
     var outcome = "1";
     var amount = "2";
-    var maxNumPolls = 3;
+    var maxNumPolls = 2;
 
     it("watch the blockchain for market updates", function (done) {
         this.timeout(TIMEOUT*8);
@@ -136,7 +136,7 @@ describe("watch", function () {
                 assert.strictEqual(abi.bignum(priceUpdate.update.outcome).toFixed(), outcome);
                 updated = true;
             }
-            if (++counter >= maxNumPolls && (!config.priceFilter || updated)) {
+            if (++counter >= maxNumPolls && (!config.filtering || updated)) {
                 assert.isTrue(mark.unwatch());
                 assert.isNull(mark.augur.filters.price_filter.id);
                 assert.isNull(mark.augur.filters.price_filter.heartbeat);
@@ -147,7 +147,7 @@ describe("watch", function () {
                 done();
             }
         });
-        if (config.priceFilter) {
+        if (config.filtering) {
             setTimeout(function () {
                 mark.augur.buyShares({
                     branchId: branch,
