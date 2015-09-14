@@ -62,41 +62,135 @@ module.exports = {
 
     collect: function (market, callback) {
         var self = this;
-        var doc = { _id: market, events: [] };
+        // note: doc field names match the UI's market object
+        var doc = {
+            _id: market,
+            id: market,
+            events: [],             // hex: getMarketEvents
+            price: null,            // str: price
+            tradingFee: null,       // str: getTradingFee
+            creationFee: null,      // str: getCreationFee
+            description: null,      // str: getDescription
+            traderId: null,         // str: getParticipantNumber (tabulate all of them?)
+            author: null,           // hex: getCreator
+            traderCount: null,      // str: getMarketInfo[0]
+            alpha: null,            // str: getMarketInfo[1]
+            numOutcomes: null,      // int: getMarketInfo[3]
+            tradingPeriod: null,    // str: getMarketInfo[4]
+            invalid: null,          // t/f: numOutcomes < 2
+            outcomes: new Array(2), // { id: int, sharesHeld: str, outstandingShares: int, price: str, priceHistory: NYI }
+            eventOutcome: null
+        };
         this.augur.getNumEvents(market, function (numEvents) {
             if (numEvents && !numEvents.error) {
                 doc.numEvents = numEvents;
                 self.augur.getTradingFee(market, function (tradingFee) {
                     if (tradingFee && !tradingFee.error) {
                         doc.tradingFee = tradingFee;
-                        self.augur.getDescription(market, function (marketDescription) {
-                            if (marketDescription && !marketDescription.error) {
-                                doc.description = marketDescription;
-                                self.augur.getSharesPurchased(market, 2, function (yesShares) {
-                                    if (yesShares && !yesShares.error) {
-                                        doc.shares = { yes: yesShares };
-                                        self.augur.getSharesPurchased(market, 1, function (noShares) {
-                                            if (noShares && !noShares.error) {
-                                                doc.shares.no = noShares;
-                                                self.augur.getMarketEvents(market, function (events) {
-                                                    if (events && !events.error) {
-                                                        async.each(events, function (thisEvent, nextEvent) {
-                                                            self.augur.getDescription(thisEvent, function (eventDescription) {
-                                                                var eventDoc = { _id: thisEvent };
-                                                                if (eventDescription && !eventDescription.error) {
-                                                                    eventDoc.description = eventDescription;
-                                                                    self.augur.getExpiration(thisEvent, function (expiration) {
-                                                                        if (expiration && !expiration.error) {
-                                                                            eventDoc.expiration = expiration;
-                                                                            doc.events.push(eventDoc);
-                                                                            nextEvent();
-                                                                        }
-                                                                    });
-                                                                }
-                                                            });
-                                                        }, function (err) {
-                                                            if (err) console.error(err);
-                                                            return callback(null, doc);
+                        self.augur.price(market, 2, function (price) {
+                            if (price && !price.error) {
+                                doc.price = price;
+                                self.augur.getDescription(market, function (marketDescription) {
+                                    if (marketDescription && !marketDescription.error) {
+                                        doc.description = marketDescription;
+                                        var outcomeId = 1;
+                                        self.augur.getMarketOutcomeInfo(market, outcomeId, function (marketOutcomeInfo) {
+                                            if (marketOutcomeInfo && !marketOutcomeInfo.error) {
+                                                doc.outcomes[outcomeId - 1] = {
+                                                    id: outcomeId,
+                                                    sharesHeld: null, // { account: shares }
+                                                    outstandingShares: marketOutcomeInfo[0],
+                                                    price: marketOutcomeInfo[2],
+                                                    priceHistory: null // NYI
+                                                };
+                                                outcomeId = 2;
+                                                self.augur.getMarketOutcomeInfo(market, outcomeId, function (marketOutcomeInfo) {
+                                                    if (marketOutcomeInfo && !marketOutcomeInfo.error) {
+                                                        doc.outcomes[outcomeId - 1] = {
+                                                            id: outcomeId,
+                                                            sharesHeld: null, // { account: shares }
+                                                            outstandingShares: marketOutcomeInfo[0],
+                                                            price: marketOutcomeInfo[2],
+                                                            priceHistory: null // NYI
+                                                        };
+                                                        self.augur.getCreationFee(market, function (creationFee) {
+                                                            if (creationFee && !creationFee.error) {
+                                                                doc.creationFee = creationFee;
+                                                                self.augur.getCreator(market, function (author) {
+                                                                    if (author && !author.error) {
+                                                                        doc.author = author;
+                                                                        self.augur.getMarketInfo(market, function (marketInfo) {
+                                                                            if (marketInfo && !marketInfo.error && marketInfo.constructor === Array && marketInfo.length >= 6) {
+                                                                                doc.traderCount = marketInfo[0];
+                                                                                doc.alpha = marketInfo[1];
+                                                                                doc.numOutcomes = parseInt(marketInfo[3]);
+                                                                                doc.tradingPeriod = marketInfo[4];
+                                                                                doc.invalid = (doc.numOutcomes < 2);
+                                                                                self.augur.getMarketEvents(market, function (events) {
+                                                                                    if (events && events.constructor === Array && events.length === parseInt(numEvents) && !events.error) {
+                                                                                        async.each(events, function (thisEvent, nextEvent) {
+                                                                                            var eventDoc = {
+                                                                                                id: thisEvent,
+                                                                                                description: null,
+                                                                                                endDate: null,
+                                                                                                winningOutcomes: [],
+                                                                                                outcome: null
+                                                                                            };
+                                                                                            self.augur.getDescription(thisEvent, function (eventDescription) {
+                                                                                                if (eventDescription && !eventDescription.error) {
+                                                                                                    eventDoc.description = eventDescription;
+                                                                                                    self.augur.getExpiration(thisEvent, function (endDate) {
+                                                                                                        if (endDate && !endDate.error) {
+                                                                                                            eventDoc.endDate = endDate; // blocknumber
+                                                                                                            self.augur.getWinningOutcomes(market, function (winningOutcomes) {
+                                                                                                                if (winningOutcomes && !winningOutcomes.error) {
+                                                                                                                    eventDoc.winningOutcomes = winningOutcomes.slice(0, events.length);
+                                                                                                                    self.augur.getOutcome(thisEvent, function (outcome) {
+                                                                                                                        if (outcome && !outcome.error) {
+                                                                                                                            eventDoc.outcome = outcome;
+                                                                                                                            doc.eventOutcome = outcome;
+                                                                                                                            doc.events.push(eventDoc);
+                                                                                                                            nextEvent();
+                                                                                                                        } else {
+                                                                                                                            doc.events.push(eventDoc);
+                                                                                                                            return nextEvent();
+                                                                                                                        }
+                                                                                                                    });
+                                                                                                                } else {
+                                                                                                                    doc.events.push(eventDoc);
+                                                                                                                    return nextEvent();
+                                                                                                                }
+                                                                                                            });
+                                                                                                        } else {
+                                                                                                            doc.events.push(eventDoc);
+                                                                                                            return nextEvent();
+                                                                                                        }
+                                                                                                    });
+                                                                                                } else {
+                                                                                                    doc.events.push(eventDoc);
+                                                                                                    return nextEvent();
+                                                                                                }
+                                                                                            });
+                                                                                        }, function (err) {
+                                                                                            if (err) console.error(err);
+                                                                                            return callback(null, doc);
+                                                                                        });
+                                                                                    } else {
+                                                                                        doc.invalid = true;
+                                                                                        return callback(null, doc);
+                                                                                    }
+                                                                                });
+                                                                            } else {
+                                                                                return callback(null, doc);
+                                                                            }
+                                                                        });
+                                                                    } else {
+                                                                        return callback(null, doc);
+                                                                    }
+                                                                });
+                                                            } else {
+                                                                return callback(null, doc);
+                                                            }
                                                         });
                                                     } else {
                                                         return callback(null, doc);

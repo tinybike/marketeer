@@ -22,9 +22,9 @@ function timestamp(s) {
 }
 
 log.write(timestamp("watch.js started\n"));
-log.write(" - Blockchain:   " + config.ethereum + '\n');
-log.write(" - Database:     " + config.mongodb + '\n');
-log.write(" - Price filter: " + config.filtering + '\n');
+log.write(" - Blockchain: " + config.ethereum + '\n');
+log.write(" - Database:   " + config.mongodb + '\n');
+log.write(" - Filtering:  " + config.filtering + '\n');
 
 mark.watch(config, function (err, numUpdates, data) {
     if (err) return log.write(timestamp(err) + '\n');
