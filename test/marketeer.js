@@ -19,7 +19,7 @@ var config = {
     filtering: !process.env.CONTINUOUS_INTEGRATION
 };
 
-describe("lookup", function () {
+describe("select", function () {
 
     it("retrieve and verify document", function (done) {
         this.timeout(TIMEOUT);
@@ -30,7 +30,7 @@ describe("lookup", function () {
             mark.upsert(doc, function (err, result) {
                 assert.isNull(err);
                 assert.isTrue(result);
-                mark.lookup(doc._id, function (err, result) {
+                mark.select(doc._id, function (err, result) {
                     assert.isNull(err);
                     assert.deepEqual(result, doc);
                     mark.disconnect();
@@ -53,14 +53,14 @@ describe("upsert", function () {
             mark.upsert(doc, function (err, result) {
                 assert.isNull(err);
                 assert.isTrue(result);
-                mark.lookup(doc._id, function (err, result) {
+                mark.select(doc._id, function (err, result) {
                     assert.isNull(err);
                     assert.deepEqual(result, doc);
                     doc.data = "goodbye world";
                     mark.upsert(doc, function (err,result) {
                         assert.isNull(err);
                         assert.isTrue(result);
-                        mark.lookup(doc._id, function (err, result) {
+                        mark.select(doc._id, function (err, result) {
                             assert.isNull(err);
                             assert.deepEqual(result, doc);
                             mark.disconnect();

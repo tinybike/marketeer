@@ -39,7 +39,7 @@ module.exports = {
         this.db = null;
     },
 
-    lookup: function (market, callback) {
+    select: function (market, callback) {
         this.db.collection("markets").findOne({ _id: market }, function (err, result) {
             if (err) {
                 if (callback) return callback(err);
@@ -76,7 +76,7 @@ module.exports = {
                                         no: noShares
                                     },
                                     events: [],
-                                    fee: parseInt(marketInfo[4])
+                                    fee: marketInfo[4]
                                 };
                                 self.augur.getMarketEvents(market, function (events) {
                                     async.each(events, function (thisEvent, nextEvent) {
