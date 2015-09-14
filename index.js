@@ -71,7 +71,6 @@ module.exports = {
             tradingFee: null,       // str: getTradingFee
             creationFee: null,      // str: getCreationFee
             description: null,      // str: getDescription
-            traderId: null,         // str: getParticipantNumber (tabulate all of them?)
             author: null,           // hex: getCreator
             traderCount: null,      // str: getMarketInfo[0]
             alpha: null,            // str: getMarketInfo[1]
@@ -82,7 +81,8 @@ module.exports = {
             eventOutcome: null,
             winningOutcomes: [],
             endDate: null,
-            participants: {}
+            participants: {},
+            network: this.augur.rpc.version()
         };
         this.augur.getNumEvents(market, function (numEvents) {
             if (numEvents && !numEvents.error) {
@@ -119,7 +119,7 @@ module.exports = {
                                 doc.author = author;
                             }
                             self.augur.getMarketInfo(market, function (marketInfo) {
-                                if (marketInfo && !marketInfo.error && marketInfo.constructor === Array && marketInfo.length >= 6) {
+                                if (marketInfo && !marketInfo.error && marketInfo.constructor === Array && marketInfo.length >= 5) {
                                     doc.traderCount = marketInfo[0];
                                     doc.alpha = marketInfo[1];
                                     doc.numOutcomes = parseInt(marketInfo[3]);

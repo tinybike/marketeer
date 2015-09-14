@@ -14,7 +14,7 @@ var TIMEOUT = 60000;
 var config = {
     ethereum: "http://eth1.augur.net",
     mongodb: "mongodb://localhost:27017/marketeer?poolSize=5&noDelay=true&connectTimeoutMS=0&socketTimeoutMS=0",
-    limit: 1,
+    limit: 2,
     interval: 2500,
     filtering: !process.env.CONTINUOUS_INTEGRATION
 };
