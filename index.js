@@ -78,10 +78,11 @@ module.exports = {
             numOutcomes: null,      // int: getMarketInfo[3]
             tradingPeriod: null,    // str: getMarketInfo[4]
             invalid: null,          // t/f: numOutcomes < 2
-            outcomes: new Array(2), // { id: int, sharesHeld: str, outstandingShares: int, price: str, priceHistory: NYI }
+            outcomes: new Array(2), // { id: int, shares: str, outstandingShares: int, price: str, priceHistory: NYI }
             eventOutcome: null,
             winningOutcomes: [],
-            endDate: null
+            endDate: null,
+            participants: {}
         };
         this.augur.getNumEvents(market, function (numEvents) {
             if (numEvents && !numEvents.error) {
@@ -95,7 +96,7 @@ module.exports = {
                     doc.outcomes[outcome - 1] = {
                         id: outcome,
                         priceHistory: null,
-                        sharesHeld: {}, // { account: shares }
+                        shares: {}, // { account: shares }
                         outstandingShares: null,
                         price: null
                     };
@@ -124,17 +125,18 @@ module.exports = {
                                     doc.numOutcomes = parseInt(marketInfo[3]);
                                     doc.tradingPeriod = marketInfo[4];
                                     doc.invalid = (doc.numOutcomes < 2);
-                                    var traders = new Array(marketInfo[0]);
-                                    for (var i = 0; i < marketInfo[0]; ++i) {
+                                    var traders = new Array(doc.traderCount);
+                                    for (var i = 0; i < doc.traderCount; ++i) {
                                         traders[i] = i;
                                     }
                                     async.each(traders, function (trader, nextTrader) {
                                         self.augur.getParticipantID(market, trader, function (address) {
                                             if (address && !address.error) {
+                                                doc.participants[address] = trader;
                                                 async.each([1, 2], function (outcome, nextOutcome) {
-                                                    self.augur.getParticipantSharesPurchased(market, trader, outcome, function (sharesHeld) {
-                                                        if (sharesHeld && !sharesHeld.error) {
-                                                            doc.outcomes[outcome - 1].sharesHeld[address] = sharesHeld;
+                                                    self.augur.getParticipantSharesPurchased(market, trader, outcome, function (shares) {
+                                                        if (shares && !shares.error) {
+                                                            doc.outcomes[outcome - 1].shares[address] = shares;
                                                         }
                                                         nextOutcome();
                                                     });
