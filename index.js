@@ -352,7 +352,7 @@ module.exports = {
         return !(
             this.watcher && this.db &&
             this.augur.filters.price_filter.id &&
-            this.augur.filters.price_filter.heartbeat &&
+            this.augur.filters.price_filter.heartbeat
         );
     }
 
