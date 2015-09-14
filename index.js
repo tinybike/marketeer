@@ -79,7 +79,9 @@ module.exports = {
             tradingPeriod: null,    // str: getMarketInfo[4]
             invalid: null,          // t/f: numOutcomes < 2
             outcomes: new Array(2), // { id: int, sharesHeld: str, outstandingShares: int, price: str, priceHistory: NYI }
-            eventOutcome: null
+            eventOutcome: null,
+            winningOutcomes: [],
+            endDate: null
         };
         this.augur.getNumEvents(market, function (numEvents) {
             if (numEvents && !numEvents.error) {
@@ -126,23 +128,21 @@ module.exports = {
                                                                         doc.description = marketDescription;
                                                                         self.augur.getMarketEvents(market, function (events) {
                                                                             if (events && events.constructor === Array && events.length === parseInt(numEvents) && !events.error) {
-                                                                                async.each(events, function (thisEvent, nextEvent) {
-                                                                                    var eventDoc = {
-                                                                                        id: thisEvent,
-                                                                                        description: null,
-                                                                                        endDate: null,
-                                                                                        winningOutcomes: [],
-                                                                                        outcome: null
-                                                                                    };
-                                                                                    self.augur.getDescription(thisEvent, function (eventDescription) {
-                                                                                        if (eventDescription && !eventDescription.error) {
-                                                                                            eventDoc.description = eventDescription;
-                                                                                            self.augur.getExpiration(thisEvent, function (endDate) {
-                                                                                                if (endDate && !endDate.error) {
-                                                                                                    eventDoc.endDate = endDate; // blocknumber
-                                                                                                    self.augur.getWinningOutcomes(market, function (winningOutcomes) {
-                                                                                                        if (winningOutcomes && !winningOutcomes.error) {
-                                                                                                            eventDoc.winningOutcomes = winningOutcomes.slice(0, events.length);
+                                                                                self.augur.getWinningOutcomes(market, function (winningOutcomes) {
+                                                                                    if (winningOutcomes && !winningOutcomes.error) {
+                                                                                        doc.winningOutcomes = winningOutcomes.slice(0, events.length);
+                                                                                        self.augur.getExpiration(events[0], function (endDate) {
+                                                                                            if (endDate && !endDate.error) {
+                                                                                                doc.endDate = endDate; // blocknumber
+                                                                                                async.each(events, function (thisEvent, nextEvent) {
+                                                                                                    var eventDoc = {
+                                                                                                        id: thisEvent,
+                                                                                                        description: null,
+                                                                                                        outcome: null
+                                                                                                    };
+                                                                                                    self.augur.getDescription(thisEvent, function (eventDescription) {
+                                                                                                        if (eventDescription && !eventDescription.error) {
+                                                                                                            eventDoc.description = eventDescription;
                                                                                                             self.augur.getOutcome(thisEvent, function (outcome) {
                                                                                                                 if (outcome && !outcome.error) {
                                                                                                                     eventDoc.outcome = outcome;
@@ -159,19 +159,17 @@ module.exports = {
                                                                                                             return nextEvent();
                                                                                                         }
                                                                                                     });
-                                                                                                } else {
-                                                                                                    doc.events.push(eventDoc);
-                                                                                                    return nextEvent();
-                                                                                                }
-                                                                                            });
-                                                                                        } else {
-                                                                                            doc.events.push(eventDoc);
-                                                                                            return nextEvent();
-                                                                                        }
-                                                                                    });
-                                                                                }, function (err) {
-                                                                                    if (err) console.error(err);
-                                                                                    return callback(null, doc);
+                                                                                                }, function (err) {
+                                                                                                    if (err) console.error(err);
+                                                                                                    return callback(null, doc);
+                                                                                                });
+                                                                                            } else {
+                                                                                                return callback(null, doc);
+                                                                                            }
+                                                                                        });
+                                                                                    } else {
+                                                                                        return callback(null, doc);
+                                                                                    }
                                                                                 });
                                                                             } else {
                                                                                 doc.invalid = true;
