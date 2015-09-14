@@ -39,14 +39,23 @@ module.exports = {
         this.db = null;
     },
 
+    remove: function (market, callback) {
+        this.db.collection("markets").remove({ _id: market }, function (err, result) {
+            if (err) {
+                if (callback) return callback(err);
+                throw err;
+            }
+            if (callback) callback(null, result);
+        });
+    },
+
     select: function (market, callback) {
         this.db.collection("markets").findOne({ _id: market }, function (err, result) {
             if (err) {
                 if (callback) return callback(err);
                 throw err;
             }
-            if (callback) return callback(null, result);
-            console.log(result);
+            if (callback) callback(null, result);
         });
     },
 
@@ -232,11 +241,7 @@ module.exports = {
                         });
                     });
                 }, function (err) {
-                    if (err) {
-                        // if (callback) return callback(err);
-                        // throw err;
-                        return console.error(err);
-                    }
+                    if (err) return console.error(err);
                     callback(err, updates);
                 });
             });
@@ -275,9 +280,8 @@ module.exports = {
                             (function (updated) {
                                 self.upsert(updated.market, function (err, success) {
                                     updated.success = success;
-                                    if (err) return console.error(err);
-                                    if (callback) return callback(null, -1, updated);
-                                    console.log(updated);
+                                    if (err) console.error(err);
+                                    if (callback) callback(null, -1, updated);
                                 });
                             })({ update: update, market: doc });
                         });
@@ -306,8 +310,7 @@ module.exports = {
                                     self.upsert(updated.market, function (err, success) {
                                         updated.success = success;
                                         if (err) return console.error(err);
-                                        if (callback) return callback(null, -2, updated);
-                                        console.log(updated);
+                                        if (callback) callback(null, -2, updated);
                                     });
                                 })({ tx: tx, market: doc });
                             });
@@ -322,11 +325,7 @@ module.exports = {
                             if (callback) return callback(err);
                             throw err;
                         }
-                        if (callback) return callback(null, updates);
-                        console.log(
-                            (new Date()).toString() + ":",
-                            updates, "market(s) updated"
-                        );
+                        if (callback) callback(null, updates);
                     });
                     if (config.interval) {
                         self.watcher = setTimeout(pulse, config.interval || INTERVAL);
@@ -350,8 +349,11 @@ module.exports = {
             this.db.close();
             this.db = null;
         }
-        return !(this.watcher && this.augur.filters.price_filter.id &&
-                 this.augur.filters.price_filter.heartbeat && this.db);
+        return !(
+            this.watcher && this.db &&
+            this.augur.filters.price_filter.id &&
+            this.augur.filters.price_filter.heartbeat &&
+        );
     }
 
 };

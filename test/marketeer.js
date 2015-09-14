@@ -34,8 +34,14 @@ describe("select", function () {
                 mark.select(doc._id, function (err, result) {
                     assert.isNull(err);
                     assert.deepEqual(result, doc);
-                    mark.disconnect();
-                    done();
+                    mark.remove(doc._id, function (err, result) {
+                        assert.isNull(err);
+                        assert.property(result, "result");
+                        assert.strictEqual(result.result.n, 1);
+                        assert.strictEqual(result.result.ok, 1);
+                        mark.disconnect();
+                        done();
+                    });
                 });
             });
         });
@@ -57,15 +63,27 @@ describe("upsert", function () {
                 mark.select(doc._id, function (err, result) {
                     assert.isNull(err);
                     assert.deepEqual(result, doc);
-                    doc.data = "goodbye world";
-                    mark.upsert(doc, function (err,result) {
+                    mark.remove(doc._id, function (err, result) {
                         assert.isNull(err);
-                        assert.isTrue(result);
-                        mark.select(doc._id, function (err, result) {
+                        assert.property(result, "result");
+                        assert.strictEqual(result.result.n, 1);
+                        assert.strictEqual(result.result.ok, 1);
+                        doc.data = "goodbye world";
+                        mark.upsert(doc, function (err,result) {
                             assert.isNull(err);
-                            assert.deepEqual(result, doc);
-                            mark.disconnect();
-                            done();
+                            assert.isTrue(result);
+                            mark.select(doc._id, function (err, result) {
+                                assert.isNull(err);
+                                assert.deepEqual(result, doc);
+                                mark.remove(doc._id, function (err, result) {
+                                    assert.isNull(err);
+                                    assert.property(result, "result");
+                                    assert.strictEqual(result.result.n, 1);
+                                    assert.strictEqual(result.result.ok, 1);
+                                    mark.disconnect();
+                                    done();
+                                });
+                            });
                         });
                     });
                 });
