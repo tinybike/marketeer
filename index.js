@@ -196,7 +196,9 @@ module.exports = {
                         //   blockHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
                         //   transactionHash: '0x8481c76a1f88a203191c1cd1942963ff9f1ea31b1db02f752771fef30133798e',
                         //   transactionIndex: '0x0' }
-                        if (tx && tx.topics && tx.topics.constructor === Array && tx.topics.length >= 3) {
+                        if (tx && tx.topics &&
+                            tx.topics.constructor === Array && tx.topics.length >= 3)
+                        {
                             self.collect(tx.topics[2], function (err, doc) {
                                 if (err) return console.error(err);
                                 (function (updated) {

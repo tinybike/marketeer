@@ -118,30 +118,45 @@ describe("watch", function () {
 
     it("watch the blockchain for market updates", function (done) {
         this.timeout(TIMEOUT*8);
-        var updated, counter = 0;
-        mark.watch(config, function (err, updates, priceUpdate) {
+        var priceUpdated, contractsUpdated, counter = 0;
+        mark.watch(config, function (err, updates, data) {
             assert.isNull(err);
             assert.isNotNull(mark.watcher);
-            assert.isAbove(updates, -2);
+            assert.isAbove(updates, -3);
             if (updates === -1) {
-                assert.property(priceUpdate, "update");
-                assert.property(priceUpdate, "market");
-                assert.property(priceUpdate.update, "user");
-                assert.property(priceUpdate.update, "marketId");
-                assert.property(priceUpdate.update, "outcome");
-                assert.property(priceUpdate.update, "price");
-                assert.property(priceUpdate.update, "cost");
-                assert.property(priceUpdate.update, "blockNumber");
-                assert.isAbove(abi.bignum(priceUpdate.update.blockNumber).toNumber(), 0);
-                assert.strictEqual(abi.bignum(priceUpdate.update.outcome).toFixed(), outcome);
-                updated = true;
+                assert.property(data, "update");
+                assert.property(data, "market");
+                assert.property(data.update, "user");
+                assert.property(data.update, "marketId");
+                assert.property(data.update, "outcome");
+                assert.property(data.update, "price");
+                assert.property(data.update, "cost");
+                assert.property(data.update, "blockNumber");
+                assert.isAbove(abi.bignum(data.update.blockNumber).toNumber(), 0);
+                assert.strictEqual(abi.bignum(data.update.outcome).toFixed(), outcome);
+                priceUpdated = true;
+            } else if (updates === -2) {
+                assert.property(data, "tx");
+                assert.property(data.tx, "address");
+                assert.property(data.tx, "topics");
+                assert.property(data.tx, "data");
+                assert.property(data.tx, "blockNumber");
+                assert.property(data.tx, "logIndex");
+                assert.property(data.tx, "blockHash");
+                assert.property(data.tx, "transactionHash");
+                assert.property(data.tx, "transactionIndex");
+                contractsUpdated = true;
             }
-            if (++counter >= maxNumPolls && (!config.filtering || updated)) {
+            if (++counter >= maxNumPolls &&
+                (!config.filtering || (priceUpdated && contractsUpdated)))
+            {
                 assert.isTrue(mark.unwatch());
                 assert.isNull(mark.augur.filters.price_filter.id);
                 assert.isNull(mark.augur.filters.price_filter.heartbeat);
                 assert.isNull(mark.augur.filters.contracts_filter.id);
+                assert.isNull(mark.augur.filters.contracts_filter.heartbeat);
                 assert.isNull(mark.augur.filters.block_filter.id);
+                assert.isNull(mark.augur.filters.block_filter.heartbeat);
                 assert.isNull(mark.watcher);
                 assert.isNull(mark.db);
                 done();

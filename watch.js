@@ -13,7 +13,7 @@ var config = {
     interval: 0
 };
 
-mark.debug = true;
+mark.debug = false;
 
 var log = createWriteStream(join(__dirname, "marketeer.log"), { flags : 'a' });
 
@@ -31,7 +31,7 @@ mark.watch(config, function (err, numUpdates, data) {
     if (numUpdates === -1) {
         log.write(timestamp(data.update.marketId + " updated [price]\n"));
     } else if (numUpdates === -2) {
-        log.write(timestamp(data.tx.marketId + " updated [contracts]\n"));
+        log.write(timestamp(data.tx.topics[2] + " updated [contracts]\n"));
     } else {
         log.write(timestamp(numUpdates + " markets updated\n"));
     }
