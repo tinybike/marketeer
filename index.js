@@ -76,7 +76,7 @@ module.exports = {
                                         no: noShares
                                     },
                                     events: [],
-                                    fee: marketInfo[4]
+                                    fee: marketInfo[4].toString()
                                 };
                                 self.augur.getMarketEvents(market, function (events) {
                                     async.each(events, function (thisEvent, nextEvent) {
