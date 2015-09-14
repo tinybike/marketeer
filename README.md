@@ -5,7 +5,7 @@ Marketeer
 [![Coverage Status](https://coveralls.io/repos/AugurProject/marketeer/badge.svg?branch=master&service=github)](https://coveralls.io/github/AugurProject/marketeer?branch=master)
 [![npm version](https://badge.fury.io/js/marketeer.svg)](http://badge.fury.io/js/marketeer)
 
-Augur market data preprocessor.
+Augur market monitor.
 
 Installation
 ------------

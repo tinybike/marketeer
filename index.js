@@ -1,5 +1,5 @@
 /**
- * Augur market data preprocessor.
+ * Augur market monitor
  * @author Jack Peterson (jack@tinybike.net)
  */
 
@@ -170,7 +170,7 @@ module.exports = {
                         //   cost: '-1.00000000000000008137',
                         //   blockNumber: '4722' }
                         self.collect(update.marketId, function (err, doc) {
-                            if (err) return console.error(err);
+                            if (err) return console.error(err, update);
                             (function (updated) {
                                 self.upsert(updated.market, function (err, success) {
                                     updated.success = success;
@@ -200,7 +200,7 @@ module.exports = {
                             tx.topics.constructor === Array && tx.topics.length >= 3)
                         {
                             self.collect(tx.topics[2], function (err, doc) {
-                                if (err) return console.error(err);
+                                if (err) return console.error(err, tx);
                                 (function (updated) {
                                     self.upsert(updated.market, function (err, success) {
                                         updated.success = success;
@@ -214,7 +214,7 @@ module.exports = {
                     }
                 });
             }
-            var watcher = function () {
+            (function pulse() {
                 self.scan(config, function (err, updates) {
                     if (err) {
                         if (callback) return callback(err);
@@ -227,10 +227,9 @@ module.exports = {
                     );
                 });
                 if (config.interval) {
-                    self.watcher = setTimeout(watcher, config.interval || INTERVAL);
+                    self.watcher = setTimeout(pulse, config.interval || INTERVAL);
                 }
-            };
-            watcher();
+            })();
         });
     },
 
