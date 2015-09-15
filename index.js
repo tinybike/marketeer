@@ -228,68 +228,68 @@ module.exports = {
                                                         doc.description = marketDescription;
                                                     }
                                                     self.augur.getMarketEvents(market, function (events) {
-                                                        if (events && events.constructor === Array && events.length === parseInt(numEvents) && !events.error) {
+                                                        if (events && events.constructor === Array &&
+                                                            events.length === parseInt(numEvents) && !events.error)
+                                                        {
                                                             self.augur.getWinningOutcomes(market, function (winningOutcomes) {
                                                                 if (winningOutcomes && !winningOutcomes.error) {
                                                                     doc.winningOutcomes = winningOutcomes.slice(0, events.length);
-                                                                    self.augur.getExpiration(events[0], function (endDate) {
-                                                                        if (endDate && !endDate.error) {
-                                                                            doc.endDate = endDate; // blocknumber
-                                                                        }
-                                                                        async.each(events, function (thisEvent, nextEvent) {
-                                                                            var eventDoc, storedEventIndex;
-                                                                            eventDoc = {
-                                                                                id: thisEvent,
-                                                                                description: null,
-                                                                                outcome: null
-                                                                            };
-                                                                            if (doc.events && doc.events.length) {
-                                                                                for (var i = 0; i < doc.events.length; ++i) {
-                                                                                    if (doc.events[i].id === thisEvent) {
-                                                                                        storedEventIndex = i;
-                                                                                        break;
-                                                                                    }
-                                                                                }
-                                                                            }
-                                                                            if (storedEventIndex !== undefined) {
-                                                                                eventDoc.description = doc.events[storedEventIndex].description;
-                                                                                eventDoc.outcome = doc.events[storedEventIndex].outcome;
-                                                                            }
-                                                                            self.augur.getDescription(thisEvent, function (eventDescription) {
-                                                                                if (eventDescription && !eventDescription.error) {
-                                                                                    eventDoc.description = eventDescription;
-                                                                                }
-                                                                                self.augur.getOutcome(thisEvent, function (outcome) {
-                                                                                    if (outcome && !outcome.error) {
-                                                                                        eventDoc.outcome = outcome;
-                                                                                        doc.eventOutcome = outcome;
-                                                                                    }
-                                                                                    if (storedEventIndex !== undefined) {
-                                                                                        doc.events[storedEventIndex] = eventDoc;
-                                                                                    } else {
-                                                                                        doc.events.push(eventDoc);
-                                                                                    }
-                                                                                    nextEvent();
-                                                                                });
-                                                                            });
-                                                                        }, function (err) {
-                                                                            if (err) console.error(err);
-                                                                            callback(null, doc);
-                                                                        });
-                                                                    });
-                                                                } else {
-                                                                    callback(null, doc);
                                                                 }
+                                                                self.augur.getExpiration(events[0], function (endDate) {
+                                                                    if (endDate && !endDate.error) {
+                                                                        doc.endDate = endDate; // blocknumber
+                                                                    }
+                                                                    async.each(events, function (thisEvent, nextEvent) {
+                                                                        var eventDoc, storedEventIndex;
+                                                                        eventDoc = {
+                                                                            id: thisEvent,
+                                                                            description: null,
+                                                                            outcome: null
+                                                                        };
+                                                                        if (doc.events && doc.events.length) {
+                                                                            for (var i = 0; i < doc.events.length; ++i) {
+                                                                                if (doc.events[i].id === thisEvent) {
+                                                                                    storedEventIndex = i;
+                                                                                    break;
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                        if (storedEventIndex !== undefined) {
+                                                                            eventDoc.description = doc.events[storedEventIndex].description;
+                                                                            eventDoc.outcome = doc.events[storedEventIndex].outcome;
+                                                                        }
+                                                                        self.augur.getDescription(thisEvent, function (eventDescription) {
+                                                                            if (eventDescription && !eventDescription.error) {
+                                                                                eventDoc.description = eventDescription;
+                                                                            }
+                                                                            self.augur.getOutcome(thisEvent, function (outcome) {
+                                                                                if (outcome && !outcome.error) {
+                                                                                    eventDoc.outcome = outcome;
+                                                                                    doc.eventOutcome = outcome;
+                                                                                }
+                                                                                if (storedEventIndex !== undefined) {
+                                                                                    doc.events[storedEventIndex] = eventDoc;
+                                                                                } else {
+                                                                                    doc.events.push(eventDoc);
+                                                                                }
+                                                                                nextEvent();
+                                                                            });
+                                                                        });
+                                                                    }, function (err) {
+                                                                        if (err) console.error(err);
+                                                                        callback(null, doc);
+                                                                    });
+                                                                });
                                                             });
                                                         } else {
                                                             doc.invalid = true;
-                                                            callback(null, doc);
+                                                            callback(events, doc);
                                                         }
                                                     });
                                                 });
                                             });
                                         } else {
-                                            callback(null, doc);
+                                            callback(marketInfo, doc);
                                         }
                                     });
                                 });
@@ -316,13 +316,17 @@ module.exports = {
                 }
                 var updates = 0;
                 async.each(markets, function (market, nextMarket) {
-                    self.collect(market, function (err, doc) {
-                        if (err) return nextMarket(err);
-                        if (doc) self.upsert(doc, function (err) {
-                            ++updates;
-                            nextMarket(err);
+                    if (market && !market.error) {
+                        self.collect(market, function (err, doc) {
+                            if (err) return nextMarket(err);
+                            if (doc) self.upsert(doc, function (err) {
+                                ++updates;
+                                nextMarket(err);
+                            });
                         });
-                    });
+                    } else {
+                        nextMarket();
+                    }
                 }, function (err) {
                     if (err) return console.error(err);
                     callback(err, updates);
