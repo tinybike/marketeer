@@ -368,15 +368,14 @@ module.exports = {
                         //   price: '1.00000000000000002255',
                         //   cost: '-1.00000000000000008137',
                         //   blockNumber: '4722' }
+                        if (self.debug) console.log(update);
                         if (update && update.marketId && !update.error) {
                             self.collect(update.marketId, function (err, doc) {
-                                if (err) return console.error(err, update);
-                                console.log(update.marketId);
-                                console.log(doc);
+                                if (err) return console.error("price filter error:", err, update);
                                 (function (updated) {
                                     self.upsert(updated.market, function (err, success) {
                                         updated.success = success;
-                                        if (err) console.error(err);
+                                        if (err) console.error("price filter upsert error:", err);
                                         if (callback) callback(null, -1, updated);
                                     });
                                 })({ update: update, market: doc });
@@ -398,15 +397,17 @@ module.exports = {
                         //   blockHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
                         //   transactionHash: '0x8481c76a1f88a203191c1cd1942963ff9f1ea31b1db02f752771fef30133798e',
                         //   transactionIndex: '0x0' }
+                        if (self.debug) console.log("tx:", tx);
                         if (tx && tx.topics &&
                             tx.topics.constructor === Array && tx.topics.length >= 3)
                         {
                             self.collect(tx.topics[2], function (err, doc) {
-                                if (err) return console.error(err, tx);
+                                if (self.debug) console.log("contracts:", doc);
+                                if (err) return console.error("contracts filter error:", err, tx);
                                 (function (updated) {
                                     self.upsert(updated.market, function (err, success) {
                                         updated.success = success;
-                                        if (err) return console.error(err);
+                                        if (err) return console.error("contracts filter upsert error:", err);
                                         if (callback) callback(null, -2, updated);
                                     });
                                 })({ tx: tx, market: doc });
