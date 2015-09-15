@@ -40,33 +40,39 @@ module.exports = {
     },
 
     remove: function (market, callback) {
-        this.db.collection("markets").remove({ _id: market }, function (err, result) {
-            if (err) {
-                if (callback) return callback(err);
-                throw err;
-            }
-            if (callback) callback(null, result);
-        });
+        if (this.db) {
+            this.db.collection("markets").remove({ _id: market }, function (err, result) {
+                if (err) {
+                    if (callback) return callback(err);
+                    throw err;
+                }
+                if (callback) callback(null, result);
+            });
+        }
     },
 
     select: function (market, callback) {
-        this.db.collection("markets").findOne({ _id: market }, function (err, result) {
-            if (err) {
-                if (callback) return callback(err);
-                throw err;
-            }
-            if (callback) callback(null, result);
-        });
+        if (this.db) {
+            this.db.collection("markets").findOne({ _id: market }, function (err, result) {
+                if (err) {
+                    if (callback) return callback(err);
+                    throw err;
+                }
+                if (callback) callback(null, result);
+            });
+        }
     },
 
     upsert: function (doc, callback) {
-        this.db.collection("markets").save(doc, { upsert: true }, function (err) {
-            if (err) {
-                if (callback) return callback(err);
-                throw err;
-            }
-            if (callback) callback(null, true);
-        });
+        if (this.db) {
+            this.db.collection("markets").save(doc, { upsert: true }, function (err) {
+                if (err) {
+                    if (callback) return callback(err);
+                    throw err;
+                }
+                if (callback) callback(null, true);
+            });
+        }
     },
 
     collect: function (market, callback) {
@@ -362,16 +368,20 @@ module.exports = {
                         //   price: '1.00000000000000002255',
                         //   cost: '-1.00000000000000008137',
                         //   blockNumber: '4722' }
-                        self.collect(update.marketId, function (err, doc) {
-                            if (err) return console.error(err, update);
-                            (function (updated) {
-                                self.upsert(updated.market, function (err, success) {
-                                    updated.success = success;
-                                    if (err) console.error(err);
-                                    if (callback) callback(null, -1, updated);
-                                });
-                            })({ update: update, market: doc });
-                        });
+                        if (update && update.marketId && !update.error) {
+                            self.collect(update.marketId, function (err, doc) {
+                                if (err) return console.error(err, update);
+                                console.log(update.marketId);
+                                console.log(doc);
+                                (function (updated) {
+                                    self.upsert(updated.market, function (err, success) {
+                                        updated.success = success;
+                                        if (err) console.error(err);
+                                        if (callback) callback(null, -1, updated);
+                                    });
+                                })({ update: update, market: doc });
+                            });
+                        }
                     },
                     contracts: function (tx) {
                         // { address: '0xc1c4e2f32e4b84a60b8b7983b6356af4269aab79',
