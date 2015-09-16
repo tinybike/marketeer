@@ -156,22 +156,21 @@ module.exports = {
                                     doc.outcomes[outcomeIndex].price = marketOutcomeInfo[2];
                                 }
                                 if (outcome === 2) doc.price = marketOutcomeInfo[2];
-                                // self.augur.getMarketPriceHistory(market, outcome, function (priceHistory) {
-                                //     if (priceHistory && !priceHistory.error && priceHistory.constructor === Array &&
-                                //         priceHistory.length && priceHistory[0].price && priceHistory[0].blockNumber)
-                                //     {
-                                //         // [ { price: '0.63516251570617909394',
-                                //         //   cost: '-0.60298389814458771727',
-                                //         //   blockNumber: '152382' },
-                                //         // { price: '0.57216362966052406597',
-                                //         //   cost: '-0.53844413406385931029',
-                                //         //   blockNumber: '152352' }, ... ]
-                                //         priceHistory.reverse();
-                                //         doc.outcomes[outcomeIndex].priceHistory = priceHistory;
-                                //     }
-                                //     nextOutcome();
-                                // });
-                                nextOutcome();
+                                self.augur.getMarketPriceHistory(market, outcome, function (priceHistory) {
+                                    if (priceHistory && !priceHistory.error && priceHistory.constructor === Array &&
+                                        priceHistory.length && priceHistory[0].price && priceHistory[0].blockNumber)
+                                    {
+                                        // [ { price: '0.63516251570617909394',
+                                        //   cost: '-0.60298389814458771727',
+                                        //   blockNumber: '152382' },
+                                        // { price: '0.57216362966052406597',
+                                        //   cost: '-0.53844413406385931029',
+                                        //   blockNumber: '152352' }, ... ]
+                                        priceHistory.reverse();
+                                        doc.outcomes[outcomeIndex].priceHistory = priceHistory;
+                                    }
+                                    nextOutcome();
+                                });
                             });
                         }, function (err) {
                             if (err) console.error(err);
