@@ -166,32 +166,15 @@ module.exports = {
                                 if (marketOutcomeInfo) {
                                     if (marketOutcomeInfo.error) {
                                         console.log("getMarketOutcomeInfo error:", marketOutcomeInfo);
-                                        nextOutcome();
                                     } else {
                                         doc.outcomes[outcomeIndex].outstandingShares = marketOutcomeInfo[0];
                                         doc.outcomes[outcomeIndex].price = marketOutcomeInfo[2];
                                         if (outcome === 2) {
                                             doc.price = marketOutcomeInfo[2];
                                         }
-                                        self.augur.getMarketPriceHistory(market, outcome, function (priceHistory) {
-                                            // [ { price: '0.63516251570617909394',
-                                            //   cost: '-0.60298389814458771727',
-                                            //   blockNumber: '152382' },
-                                            // { price: '0.57216362966052406597',
-                                            //   cost: '-0.53844413406385931029',
-                                            //   blockNumber: '152352' }, ... ]
-                                            if (priceHistory) {
-                                                if (priceHistory.error || priceHistory.constructor !== Array) {
-                                                    console.log("getMarketPriceHistory error:", priceHistory);
-                                                } else {
-                                                    priceHistory.reverse();
-                                                    doc.outcomes[outcomeIndex].priceHistory = priceHistory;
-                                                }
-                                            }
-                                            nextOutcome();
-                                        });
                                     }
                                 }
+                                nextOutcome();
                             });
                         }, function (err) {
                             if (err) console.log("async.each(outcomes) error:", err);
@@ -387,31 +370,36 @@ module.exports = {
         var self = this;
         config = config || {};
         if (this.db && typeof this.db === "object") {
-            this.augur.getMarkets(this.augur.branches.dev, function (markets) {
-                var numMarkets = markets.length;
-                if (config.limit && config.limit < numMarkets) {
-                    markets = markets.slice(numMarkets - config.limit, numMarkets);
-                    numMarkets = config.limit;
-                }
-                if (self.debug) {
-                    console.log("Scanning", numMarkets, "markets...");
-                }
-                var updates = 0;
-                async.each(markets, function (market, nextMarket) {
-                    if (market && !market.error) {
-                        self.collect(market, function (err, doc) {
-                            if (err) return nextMarket(err);
-                            if (doc) self.upsert(doc, function (err) {
-                                ++updates;
-                                nextMarket(err);
+            this.augur.getPriceHistory(this.augur.branches.dev, function (priceHistory) {
+                self.augur.getMarkets(self.augur.branches.dev, function (markets) {
+                    if (markets && !markets.error) {
+                        var numMarkets = markets.length;
+                        if (config.limit && config.limit < numMarkets) {
+                            markets = markets.slice(numMarkets - config.limit, numMarkets);
+                            numMarkets = config.limit;
+                        }
+                        if (self.debug) {
+                            console.log("Scanning", numMarkets, "markets...");
+                        }
+                        var updates = 0;
+                        async.each(markets, function (market, nextMarket) {
+                            self.collect(market, function (err, doc) {
+                                if (err) return nextMarket(err);
+                                if (doc) {
+                                    if (priceHistory[market]) {
+                                        doc.priceHistory = priceHistory[market];
+                                    }
+                                    self.upsert(doc, function (err) {
+                                        ++updates;
+                                        nextMarket(err);
+                                    });
+                                }
                             });
+                        }, function (err) {
+                            if (err) return console.error(err);
+                            callback(err, updates);
                         });
-                    } else {
-                        nextMarket();
                     }
-                }, function (err) {
-                    if (err) return console.error(err);
-                    callback(err, updates);
                 });
             });
         } else {
