@@ -383,18 +383,20 @@ module.exports = {
                         }
                         var updates = 0;
                         async.each(markets, function (market, nextMarket) {
-                            self.collect(market, function (err, doc) {
-                                if (err) return nextMarket(err);
-                                if (doc) {
-                                    if (priceHistory[market]) {
-                                        doc.priceHistory = priceHistory[market];
+                            setTimeout(function () {
+                                self.collect(market, function (err, doc) {
+                                    if (err) return nextMarket(err);
+                                    if (doc) {
+                                        if (priceHistory[market]) {
+                                            doc.priceHistory = priceHistory[market];
+                                        }
+                                        self.upsert(doc, function (err) {
+                                            ++updates;
+                                            nextMarket(err);
+                                        });
                                     }
-                                    self.upsert(doc, function (err) {
-                                        ++updates;
-                                        nextMarket(err);
-                                    });
-                                }
-                            });
+                                });
+                            }, 50);
                         }, function (err) {
                             if (err) return console.error(err);
                             callback(err, updates);
