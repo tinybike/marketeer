@@ -417,6 +417,37 @@ module.exports = {
     },
 
     watch: function (config, callback) {
+
+        function collectFiltrate(filtrate) {
+            if (self.debug) console.log(filtrate);
+            if (filtrate) {
+                if (filtrate.marketId && !filtrate.error) {
+                    self.collect(filtrate.marketId, function (err, doc) {
+                        if (err) return console.error("price filter error:", err, filtrate);
+                        upsertFilterDoc(filtrate, doc);
+                    });
+                } else {
+                    console.error("price filter error: no marketId field", filtrate);
+                }
+            }
+        }
+
+        function upsertFilterDoc(filtrate, doc) {
+            var code = (filtrate.price) ? -1 : -2;
+            if (self.debug) {
+                console.log("Filtrate:", JSON.stringify(filtrate, null, 2));
+                console.log("Document:", JSON.stringify(doc, null, 2));
+            }
+            self.upsert(doc, function (err, success) {
+                if (err) return console.error("filter upsert error:", err, filtrate, doc);
+                if (callback) callback(null, code, {
+                    filtrate: filtrate,
+                    doc: doc,
+                    success: success
+                });
+            });
+        }
+
         var self = this;
         config = config || {};
         this.connect(config, function (err) {
@@ -427,58 +458,120 @@ module.exports = {
             if (self.debug) console.log("Connected");
             if (config.filtering) {
                 self.augur.filters.listen({
-                    price: function (update) {
-                        // { user: '0x00000000000000000000000005ae1d0ca6206c6168b42efcd1fbe0ed144e821b',
-                        //   marketId: '-0xcaa8317a2d53b432c94180c591f09c30594e72cb6f747ef12be1bb5504c664bc',
-                        //   outcome: '1',
-                        //   price: '1.00000000000000002255',
-                        //   cost: '-1.00000000000000008137',
-                        //   blockNumber: '4722' }
-                        if (self.debug) console.log(update);
-                        if (update && update.marketId && !update.error) {
-                            self.collect(update.marketId, function (err, doc) {
-                                if (err) return console.error("price filter error:", err, update);
-                                (function (updated) {
-                                    self.upsert(updated.market, function (err, success) {
-                                        updated.success = success;
-                                        if (err) console.error("price filter upsert error:", err);
-                                        if (callback) callback(null, -1, updated);
+                    /**
+                        { user: '0x05ae1d0ca6206c6168b42efcd1fbe0ed144e821b',
+                          marketId: '-0xcaa8317a2d53b432c94180c591f09c30594e72cb6f747ef12be1bb5504c664bc',
+                          outcome: '1',
+                          price: '1.00000000000000002255',
+                          cost: '-1.00000000000000008137',
+                          blockNumber: '4722' }
+                     */
+                    price: collectFiltrate,
+                    contracts: function (filtrate) {
+                        /**
+                            buyShares:
+                            { address: '0xc1c4e2f32e4b84a60b8b7983b6356af4269aab79',
+                              topics: 
+                               [ '0x1a653a04916ffd3d6f74d5966492bda358e560be296ecf5307c2e2c2fdedd35a',
+                                 '0x00000000000000000000000005ae1d0ca6206c6168b42efcd1fbe0ed144e821b',
+                                 '0xa75efad9b39ee62f8dc0d87cdd6f21e57ac486db17e5ca5cd820c4fa92bfee03',
+                                 '0x0000000000000000000000000000000000000000000000000000000000000001' ],
+                              data: 
+                               [ '0x000000000000000000000000000000000000000000000000f972dda04ee3f330',
+                                 '0xffffffffffffffffffffffffffffffffffffffffffffffff2f27a6d1ff09119c' ],
+                              blockNumber: '0x4ec9',
+                              logIndex: '0x0',
+                              blockHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+                              transactionHash: '0xbf1dfee6311cb3a388fc4e4b1f75a9eee67d081f59522b99d813840a5cb74a9e',
+                              transactionIndex: '0x0' }
+
+                            createMarket:
+                            { address: '0xd2e9f7c2fd4635199b8cc9e8128fc4d27c693945',
+                              topics: 
+                               [ '0x20a4e172725965b86bd8a626ee70f94c0e142ef8c81c890e7f538a1ce4e6dbe9',
+                                 '0x763c9ea797fe61236b2eed85617a1ba0aad7a24240a37d5cb0a2330e63e49c5f' ],
+                              data: '0x',
+                              blockNumber: '0x4e99',
+                              logIndex: '0x0',
+                              blockHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+                              transactionHash: '0xd0da45a58ac293adbbddff613bffc6ec6e35e8c487ef1f3171e999057c5a3167',
+                              transactionIndex: '0x0' }
+                          */
+                        if (filtrate && filtrate.address && filtrate.topics && filtrate.topics.constructor === Array) {
+                            switch (filtrate.address) {
+                            case self.augur.contracts.createMarket:
+                                if (filtrate.topics.length > 1) {
+                                    self.collect(self.augur.numeric.bignum(filtrate.topics[1], "hex"), function (err, doc) {
+                                        if (err) return console.error("contracts filter error:", err, filtrate);
+                                        upsertFilterDoc(filtrate, doc);
                                     });
-                                })({ update: update, market: doc });
-                            });
-                        }
-                    },
-                    contracts: function (tx) {
-                        // { address: '0xc1c4e2f32e4b84a60b8b7983b6356af4269aab79',
-                        //   topics: 
-                        //    [ '0x1a653a04916ffd3d6f74d5966492bda358e560be296ecf5307c2e2c2fdedd35a',
-                        //      '0x00000000000000000000000005ae1d0ca6206c6168b42efcd1fbe0ed144e821b',
-                        //      '0x3557ce85d2ac4bcd36be7f3a6e0f63cfa6b18d34908b810ed41e44aafb399b44',
-                        //      '0x0000000000000000000000000000000000000000000000000000000000000001' ],
-                        //   data: 
-                        //    [ '0x000000000000000000000000000000000000000000000001000000000000d330',
-                        //      '0xfffffffffffffffffffffffffffffffffffffffffffffffeffffffffffffffa3' ],
-                        //   blockNumber: '0x110d',
-                        //   logIndex: '0x0',
-                        //   blockHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
-                        //   transactionHash: '0x8481c76a1f88a203191c1cd1942963ff9f1ea31b1db02f752771fef30133798e',
-                        //   transactionIndex: '0x0' }
-                        if (self.debug) console.log("tx:", tx);
-                        if (tx && tx.topics &&
-                            tx.topics.constructor === Array && tx.topics.length >= 3)
-                        {
-                            self.collect(tx.topics[2], function (err, doc) {
-                                if (self.debug) console.log("contracts:", doc);
-                                if (err) return console.error("contracts filter error:", err, tx);
-                                (function (updated) {
-                                    self.upsert(updated.market, function (err, success) {
-                                        updated.success = success;
-                                        if (err) return console.error("contracts filter upsert error:", err);
-                                        if (callback) callback(null, -2, updated);
-                                    });
-                                })({ tx: tx, market: doc });
-                            });
-                        }
+                                }
+                                break;
+                            case self.augur.contracts.closeMarket:
+                                console.log("closeMarket:", filtrate);
+                                break;
+                            case self.augur.contracts.sendReputation:
+                                console.log("sendReputation:", filtrate);
+                                break;
+                            case self.augur.contracts.checkQuorum:
+                                console.log("checkQuorum:", filtrate);
+                                break;
+                            case self.augur.contracts.createBranch:
+                                console.log("createBranch:", filtrate);
+                                break;
+                            case self.augur.contracts.sendReputation:
+                                console.log("sendReputation:", filtrate);
+                                break;
+                            case self.augur.contracts.createEvent:
+                                console.log("createEvent:", filtrate);
+                                break;
+                            case self.augur.contracts.dispatch:
+                                console.log("dispatch:", filtrate);
+                                break;
+                            case self.augur.contracts.faucets:
+                                console.log("faucets:", filtrate);
+                                break;
+                            case self.augur.contracts.makeReports:
+                                console.log("makeReports:", filtrate);
+                                break;
+                            case self.augur.contracts.p2pWagers:
+                                console.log("p2pWagers:", filtrate);
+                                break;
+                            case self.augur.contracts.transferShares:
+                                console.log("transferShares:", filtrate);
+                                break;
+                            case self.augur.contracts.reporting:
+                                console.log("reporting:", filtrate);
+                                break;
+                            case self.augur.contracts.markets:
+                                console.log("markets:", filtrate);
+                                break;
+                            case self.augur.contracts.events:
+                                console.log("events:", filtrate);
+                                break;
+                            case self.augur.contracts.info:
+                                console.log("info:", filtrate);
+                                break;
+                            case self.augur.contracts.fxpFunctions:
+                                console.log("fxpFunctions:", filtrate);
+                                break;
+                            case self.augur.contracts.expiringEvents:
+                                console.log("expiringEvents:", filtrate);
+                                break;
+                            case self.augur.contracts.cash:
+                                console.log("cash:", filtrate);
+                                break;
+                            case self.augur.contracts.branches:
+                                console.log("branches:", filtrate);
+                                break;
+                            case self.augur.contracts.namereg:
+                                console.log("namereg:", filtrate);
+                                break;
+                            default:
+                                if (self.debug) console.log(filtrate);
+                            }
+                            
+                        }                        
                     }
                 });
             }
