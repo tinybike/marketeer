@@ -384,24 +384,22 @@ module.exports = {
                                 console.log("Scanning", numMarkets, "markets...");
                             }
                             var updates = 0;
-                            async.each(markets, function (market, nextMarket) {
-                                setTimeout(function () {
-                                    self.collect(market, function (err, doc) {
-                                        if (err) return nextMarket(err);
-                                        if (doc) {
-                                            if (creationBlock && creationBlock[market]) {
-                                                doc.creationBlock = creationBlock[market];
-                                            }
-                                            if (priceHistory && priceHistory[market]) {
-                                                doc.priceHistory = priceHistory[market];
-                                            }
-                                            self.upsert(doc, function (err) {
-                                                ++updates;
-                                                nextMarket(err);
-                                            });
+                            async.eachSeries(markets, function (market, nextMarket) {
+                                self.collect(market, function (err, doc) {
+                                    if (err) return nextMarket(err);
+                                    if (doc) {
+                                        if (creationBlock && creationBlock[market]) {
+                                            doc.creationBlock = creationBlock[market];
                                         }
-                                    });
-                                }, 50);
+                                        if (priceHistory && priceHistory[market]) {
+                                            doc.priceHistory = priceHistory[market];
+                                        }
+                                        self.upsert(doc, function (err) {
+                                            ++updates;
+                                            nextMarket(err);
+                                        });
+                                    }
+                                });
                             }, function (err) {
                                 if (err) return console.error(err);
                                 callback(err, updates);
