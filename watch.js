@@ -17,7 +17,6 @@ var config = {
 mark.debug = false;
 
 var log = createWriteStream(join(__dirname, "marketeer.log"), { flags : 'a' });
-// var log = process.stdout;
 
 function has_value(o, v) {
     for (var p in o) {

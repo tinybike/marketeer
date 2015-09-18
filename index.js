@@ -94,6 +94,7 @@ module.exports = {
             invalid: null,        // t/f: numOutcomes < 2
             outcomes: [],         // { id: int, shares: str, outstandingShares: int, price: str, priceHistory: NYI }
             eventOutcome: null,
+            creationBlock: null,
             winningOutcomes: [],
             endDate: null,
             participants: {},
@@ -437,6 +438,9 @@ module.exports = {
             if (self.debug) {
                 console.log("Filtrate:", JSON.stringify(filtrate, null, 2));
                 console.log("Document:", JSON.stringify(doc, null, 2));
+            }
+            if (!filtrate.price && filtrate.blockNumber) {
+                doc.creationBlock = parseInt(filtrate.blockNumber);
             }
             self.upsert(doc, function (err, success) {
                 if (err) return console.error("filter upsert error:", err, filtrate, doc);
