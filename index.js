@@ -371,38 +371,43 @@ module.exports = {
         var self = this;
         config = config || {};
         if (this.db && typeof this.db === "object") {
-            this.augur.getPriceHistory(this.augur.branches.dev, function (priceHistory) {
-                self.augur.getMarkets(self.augur.branches.dev, function (markets) {
-                    if (markets && !markets.error) {
-                        var numMarkets = markets.length;
-                        if (config.limit && config.limit < numMarkets) {
-                            markets = markets.slice(numMarkets - config.limit, numMarkets);
-                            numMarkets = config.limit;
-                        }
-                        if (self.debug) {
-                            console.log("Scanning", numMarkets, "markets...");
-                        }
-                        var updates = 0;
-                        async.each(markets, function (market, nextMarket) {
-                            setTimeout(function () {
-                                self.collect(market, function (err, doc) {
-                                    if (err) return nextMarket(err);
-                                    if (doc) {
-                                        if (priceHistory[market]) {
-                                            doc.priceHistory = priceHistory[market];
+            this.augur.getCreationBlocks(this.augur.branches.dev, function (creationBlock) {
+                self.augur.getPriceHistory(self.augur.branches.dev, function (priceHistory) {
+                    self.augur.getMarkets(self.augur.branches.dev, function (markets) {
+                        if (markets && !markets.error) {
+                            var numMarkets = markets.length;
+                            if (config.limit && config.limit < numMarkets) {
+                                markets = markets.slice(numMarkets - config.limit, numMarkets);
+                                numMarkets = config.limit;
+                            }
+                            if (self.debug) {
+                                console.log("Scanning", numMarkets, "markets...");
+                            }
+                            var updates = 0;
+                            async.each(markets, function (market, nextMarket) {
+                                setTimeout(function () {
+                                    self.collect(market, function (err, doc) {
+                                        if (err) return nextMarket(err);
+                                        if (doc) {
+                                            if (creationBlock && creationBlock[market]) {
+                                                doc.creationBlock = creationBlock[market];
+                                            }
+                                            if (priceHistory && priceHistory[market]) {
+                                                doc.priceHistory = priceHistory[market];
+                                            }
+                                            self.upsert(doc, function (err) {
+                                                ++updates;
+                                                nextMarket(err);
+                                            });
                                         }
-                                        self.upsert(doc, function (err) {
-                                            ++updates;
-                                            nextMarket(err);
-                                        });
-                                    }
-                                });
-                            }, 50);
-                        }, function (err) {
-                            if (err) return console.error(err);
-                            callback(err, updates);
-                        });
-                    }
+                                    });
+                                }, 50);
+                            }, function (err) {
+                                if (err) return console.error(err);
+                                callback(err, updates);
+                            });
+                        }
+                    });
                 });
             });
         } else {
