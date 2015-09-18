@@ -11,7 +11,7 @@ var config = {
     mongodb: "mongodb://localhost:27017/marketeer?poolSize=5&noDelay=true&connectTimeoutMS=0&socketTimeoutMS=0",
     limit: 0,
     filtering: true,
-    scan: false
+    scan: true
 };
 
 mark.debug = false;
@@ -52,9 +52,13 @@ mark.watch(config, function (err, code, data) {
 });
 
 process.on("uncaughtException", function (e) {
-    log.write(timestamp("Uncaught exception:\n"));
-    log.write(e);
-    log.write(e.stack);
+    log.write(timestamp("Uncaught exception\n"));
+    try {
+        log.write(e.toString());
+        log.write(e.stack.toString());
+    } catch (exc) {
+        console.log(exc);
+    }
     log.write('\n');
 });
 

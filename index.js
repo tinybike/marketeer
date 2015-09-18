@@ -423,11 +423,11 @@ module.exports = {
             if (filtrate) {
                 if (filtrate.marketId && !filtrate.error) {
                     self.collect(filtrate.marketId, function (err, doc) {
-                        if (err) return console.error("price filter error:", err, filtrate);
+                        if (err) return console.error("filter error:", err, filtrate);
                         upsertFilterDoc(filtrate, doc);
                     });
                 } else {
-                    console.error("price filter error: no marketId field", filtrate);
+                    console.error("filter error: no marketId field", filtrate);
                 }
             }
         }
