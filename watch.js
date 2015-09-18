@@ -14,10 +14,10 @@ var config = {
     scan: false
 };
 
-mark.debug = true;
+mark.debug = false;
 
-// var log = createWriteStream(join(__dirname, "marketeer.log"), { flags : 'a' });
-var log = process.stdout;
+var log = createWriteStream(join(__dirname, "marketeer.log"), { flags : 'a' });
+// var log = process.stdout;
 
 function has_value(o, v) {
     for (var p in o) {
@@ -42,6 +42,8 @@ mark.watch(config, function (err, code, data) {
     if (code === -1) {
         log.write(timestamp("[price] " + data.doc._id + '\n'));
     } else if (code === -2) {
+        log.write(timestamp("[creation] " + data.doc._id + '\n'));
+    } else if (code === -3) {
         var contract = has_value(mark.augur.contracts[data.filtrate.address]);
         log.write(timestamp("[contracts:" + contract + "] " + data.doc._id + '\n'));
     } else {

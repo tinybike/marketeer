@@ -31,9 +31,9 @@ marketeer.scan(config, function (err, numUpdates) {
 ```
 If you only want the most recently-created markets, use the `config.limit` option.  For example, to only scan the five most recent markets, set `config.limit = 5`.
 
-`marketeer.watch` creates a persistent blockchain listener, which does a market information `scan` periodically.  (The default is every 30 minutes; this can be modified by editing `config.interval`.)  If you set `config.filtering = true`, it will also create contracts and price filters which listen for Augur contract transactions and updates to market prices, respectively.  It then collects the most recent info for markets which show up in the filter(s).
+`marketeer.watch` creates a persistent blockchain listener, which does a market information `scan` periodically.  (The default is every 10 minutes; this can be modified by editing `config.interval`.)  If you set `config.filtering = true`, it will also create contracts, price and creation filters which listen for Augur contract transactions, updates to market prices, and market creation events, respectively.  It then collects the most recent info for markets which show up in the filter(s).
 ```javascript
-marketeer.watch(config, function (err, numUpdates) {
+marketeer.watch(config, function (err, numUpdates, data) {
     if (err) throw err;
     console.log("Oh happy day!", numUpdates, "markets have been updated!");
     // fun times here

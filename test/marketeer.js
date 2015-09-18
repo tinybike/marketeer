@@ -15,7 +15,7 @@ var config = {
     ethereum: "http://eth1.augur.net",
     mongodb: "mongodb://localhost:27017/marketeer?poolSize=5&noDelay=true&connectTimeoutMS=0&socketTimeoutMS=0",
     limit: 2,
-    interval: 5000,
+    interval: 30000,
     scan: true,
     filtering: !process.env.CONTINUOUS_INTEGRATION
 };
@@ -138,37 +138,32 @@ describe("watch", function () {
 
     it("watch the blockchain for market updates", function (done) {
         this.timeout(TIMEOUT*8);
-        var priceUpdated, contractsUpdated, counter = 0;
+        var newMarketId, priceUpdated, creationBlock, counter = 0;
         mark.watch(config, function (err, updates, data) {
             assert.isNull(err);
             assert.isNotNull(mark.watcher);
             assert.isAbove(updates, -3);
             if (updates === -1) {
-                assert.property(data, "update");
-                assert.property(data, "market");
-                assert.property(data.update, "user");
-                assert.property(data.update, "marketId");
-                assert.property(data.update, "outcome");
-                assert.property(data.update, "price");
-                assert.property(data.update, "cost");
-                assert.property(data.update, "blockNumber");
-                assert.isAbove(abi.bignum(data.update.blockNumber).toNumber(), 0);
-                assert.strictEqual(abi.bignum(data.update.outcome).toFixed(), outcome);
+                assert.property(data, "filtrate");
+                assert.property(data, "doc");
+                assert.property(data.filtrate, "user");
+                assert.property(data.filtrate, "marketId");
+                assert.property(data.filtrate, "outcome");
+                assert.property(data.filtrate, "price");
+                assert.property(data.filtrate, "cost");
+                assert.property(data.filtrate, "blockNumber");
+                assert.isAbove(abi.bignum(data.filtrate.blockNumber).toNumber(), 0);
+                assert.strictEqual(abi.bignum(data.filtrate.outcome).toFixed(), outcome);
                 priceUpdated = true;
             } else if (updates === -2) {
-                assert.property(data, "tx");
-                assert.property(data.tx, "address");
-                assert.property(data.tx, "topics");
-                assert.property(data.tx, "data");
-                assert.property(data.tx, "blockNumber");
-                assert.property(data.tx, "logIndex");
-                assert.property(data.tx, "blockHash");
-                assert.property(data.tx, "transactionHash");
-                assert.property(data.tx, "transactionIndex");
-                contractsUpdated = true;
+                assert.property(data, "filtrate");
+                assert.property(data, "doc");
+                assert.property(data.filtrate, "marketId");
+                assert.property(data.filtrate, "blockNumber");
+                creationBlock = true;
             }
             if (++counter >= maxNumPolls &&
-                (!config.filtering || (priceUpdated && contractsUpdated)))
+                (!config.filtering || (priceUpdated && creationBlock)))
             {
                 assert.isTrue(mark.unwatch());
                 assert.isNull(mark.augur.filters.price_filter.id);
@@ -177,6 +172,8 @@ describe("watch", function () {
                 assert.isNull(mark.augur.filters.contracts_filter.heartbeat);
                 assert.isNull(mark.augur.filters.block_filter.id);
                 assert.isNull(mark.augur.filters.block_filter.heartbeat);
+                assert.isNull(mark.augur.filters.creation_filter.id);
+                assert.isNull(mark.augur.filters.creation_filter.heartbeat);
                 assert.isNull(mark.watcher);
                 assert.isNull(mark.db);
                 done();
@@ -211,6 +208,50 @@ describe("watch", function () {
                         done(r);
                     }
                 });
+                var description = Math.random().toString(36).substring(4);
+                mark.augur.createEvent({
+                    branchId: mark.augur.branches.dev,
+                    description: description,
+                    expDate: mark.augur.rpc.blockNumber() + 2500,
+                    minValue: 1,
+                    maxValue: 2,
+                    numOutcomes: 2,
+                    onSent: function (r) {
+                        assert.property(r, "txHash");
+                        assert.property(r, "callReturn");
+                    },
+                    onSuccess: function (r) {
+                        assert.property(r, "txHash");
+                        assert.property(r, "callReturn");
+                        assert.property(r, "blockHash");
+                        assert.property(r, "blockNumber");
+                        mark.augur.createMarket({
+                            branchId: mark.augur.branches.dev,
+                            description: description,
+                            alpha: "0.0079",
+                            initialLiquidity: 10,
+                            tradingFee: "0.02",
+                            events: [ r.callReturn ],
+                            onSent: function (res) {
+                                newMarketId = res.callReturn;
+                                assert.property(res, "txHash");
+                                assert.property(res, "callReturn");
+                            },
+                            onSuccess: function (res) {
+                                assert.property(res, "txHash");
+                                assert.property(res, "callReturn");
+                                assert.property(res, "blockHash");
+                                assert.property(res, "blockNumber");
+                            },
+                            onFailed: function (res) {
+                                done(res);
+                            }
+                        }); // createMarket
+                    },
+                    onFailed: function (r) {
+                        done(r);
+                    }
+                }); // createEvent
             }, 2500);
         }
     });

@@ -8,7 +8,7 @@
 var async = require("async");
 var MongoClient = require("mongodb").MongoClient;
 
-var INTERVAL = 1800000; // default update interval (30 minutes)
+var INTERVAL = 600000; // default update interval (10 minutes)
 
 module.exports = {
 
@@ -467,6 +467,11 @@ module.exports = {
                           blockNumber: '4722' }
                      */
                     price: collectFiltrate,
+                    /**
+                        { marketId: "-0x65ba5a9c2db024df5cdd4db31a0343608758ebdfcd69bf4eb1810d77502b932e",
+                          blockNumber: "20542" }
+                     */
+                    creation: collectFiltrate,
                     contracts: function (filtrate) {
                         /**
                             buyShares:
@@ -500,72 +505,70 @@ module.exports = {
                         if (filtrate && filtrate.address && filtrate.topics && filtrate.topics.constructor === Array) {
                             switch (filtrate.address) {
                             case self.augur.contracts.createMarket:
-                                if (filtrate.topics.length > 1) {
-                                    self.collect(self.augur.numeric.bignum(filtrate.topics[1], "hex"), function (err, doc) {
-                                        if (err) return console.error("contracts filter error:", err, filtrate);
-                                        upsertFilterDoc(filtrate, doc);
-                                    });
-                                }
+                                // console.log("createMarket:", JSON.stringify(filtrate, null, 2));
+                                break;
+                            case self.augur.contracts.buyAndSellShares:
+                                // console.log("buyAndSellShares:", JSON.stringify(filtrate, null, 2));
                                 break;
                             case self.augur.contracts.closeMarket:
-                                console.log("closeMarket:", filtrate);
+                                console.log("closeMarket:", JSON.stringify(filtrate, null, 2));
                                 break;
                             case self.augur.contracts.sendReputation:
-                                console.log("sendReputation:", filtrate);
+                                console.log("sendReputation:", JSON.stringify(filtrate, null, 2));
                                 break;
                             case self.augur.contracts.checkQuorum:
-                                console.log("checkQuorum:", filtrate);
+                                console.log("checkQuorum:", JSON.stringify(filtrate, null, 2));
                                 break;
                             case self.augur.contracts.createBranch:
-                                console.log("createBranch:", filtrate);
+                                console.log("createBranch:", JSON.stringify(filtrate, null, 2));
                                 break;
                             case self.augur.contracts.sendReputation:
-                                console.log("sendReputation:", filtrate);
+                                console.log("sendReputation:", JSON.stringify(filtrate, null, 2));
                                 break;
                             case self.augur.contracts.createEvent:
-                                console.log("createEvent:", filtrate);
+                                console.log("createEvent:", JSON.stringify(filtrate, null, 2));
                                 break;
                             case self.augur.contracts.dispatch:
-                                console.log("dispatch:", filtrate);
+                                console.log("dispatch:", JSON.stringify(filtrate, null, 2));
                                 break;
                             case self.augur.contracts.faucets:
-                                console.log("faucets:", filtrate);
+                                console.log("faucets:", JSON.stringify(filtrate, null, 2));
                                 break;
                             case self.augur.contracts.makeReports:
-                                console.log("makeReports:", filtrate);
+                                console.log("makeReports:", JSON.stringify(filtrate, null, 2));
                                 break;
                             case self.augur.contracts.p2pWagers:
-                                console.log("p2pWagers:", filtrate);
+                                console.log("p2pWagers:", JSON.stringify(filtrate, null, 2));
                                 break;
                             case self.augur.contracts.transferShares:
-                                console.log("transferShares:", filtrate);
+                                console.log("transferShares:", JSON.stringify(filtrate, null, 2));
                                 break;
                             case self.augur.contracts.reporting:
-                                console.log("reporting:", filtrate);
+                                console.log("reporting:", JSON.stringify(filtrate, null, 2));
                                 break;
                             case self.augur.contracts.markets:
-                                console.log("markets:", filtrate);
+                                console.log("markets:", JSON.stringify(filtrate, null, 2));
                                 break;
                             case self.augur.contracts.events:
-                                console.log("events:", filtrate);
+                                console.log("events:", JSON.stringify(filtrate, null, 2));
                                 break;
                             case self.augur.contracts.info:
-                                console.log("info:", filtrate);
+                                console.log("info:", JSON.stringify(filtrate, null, 2));
                                 break;
                             case self.augur.contracts.fxpFunctions:
-                                console.log("fxpFunctions:", filtrate);
+                                console.log("fxpFunctions:", JSON.stringify(filtrate, null, 2));
                                 break;
                             case self.augur.contracts.expiringEvents:
-                                console.log("expiringEvents:", filtrate);
+                                console.log("expiringEvents:", JSON.stringify(filtrate, null, 2));
                                 break;
                             case self.augur.contracts.cash:
-                                console.log("cash:", filtrate);
+                                console.log("cash:", JSON.stringify(filtrate, null, 2));
                                 break;
                             case self.augur.contracts.branches:
-                                console.log("branches:", filtrate);
+                                console.log("branches:", JSON.stringify(filtrate, null, 2));
                                 break;
                             case self.augur.contracts.namereg:
-                                console.log("namereg:", filtrate);
+                                console.log("namereg:", JSON.stringify(filtrate, null, 2));
                                 break;
                             default:
                                 if (self.debug) console.log(filtrate);
