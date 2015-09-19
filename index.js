@@ -111,6 +111,7 @@ module.exports = {
                     if (!storedDoc.hasOwnProperty(k)) continue;
                     doc[k] = storedDoc[k];
                 }
+                doc.invalid = null;
             }
             self.augur.getBranchID(market, function (branchId) {
                 if (branchId) {
