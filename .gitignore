@@ -1,3 +1,5 @@
+notes
 node_modules
 *.log
 coverage
+ipc

@@ -1,3 +1,4 @@
+(function () {
 /**
  * Marketeer unit tests.
  * @author Jack Peterson (jack@tinybike.net)
@@ -5,16 +6,21 @@
 
 "use strict";
 
+var path = require("path");
+var cp = require("child_process");
+var chalk = require("chalk");
 var crypto = require("crypto");
 var abi = require("augur-abi");
 var assert = require("chai").assert;
 var mark = require("../");
 
+var DEBUG = false;
 var TIMEOUT = 60000;
+
 var config = {
     ethereum: "http://eth1.augur.net",
     mongodb: "mongodb://localhost:27017/marketeer?poolSize=5&noDelay=true&connectTimeoutMS=0&socketTimeoutMS=0",
-    limit: 2,
+    limit: 1,
     interval: 30000,
     scan: true,
     filtering: !process.env.CONTINUOUS_INTEGRATION
@@ -126,19 +132,19 @@ describe("scan", function () {
 describe("watch", function () {
     if (config.filtering) config.ethereum = "http://127.0.0.1:8545";
 
-    mark.augur.bignumbers = false;
+    var branch, markets, marketId, outcome, amount, maxNumPolls;
+
     mark.augur.connect(config.ethereum);
-
-    var branch = mark.augur.branches.dev;
-    var markets = mark.augur.getMarkets(branch);
-    var marketId = markets[markets.length - 1];
-    var outcome = "1";
-    var amount = "2";
-    var maxNumPolls = 2;
-
+    branch = mark.augur.branches.dev;
+    markets = mark.augur.getMarkets(branch);
+    marketId = markets[markets.length - 1];
+    outcome = "1";
+    amount = "2";
+    maxNumPolls = 2;
+    
     it("watch the blockchain for market updates", function (done) {
         this.timeout(TIMEOUT*8);
-        var newMarketId, priceUpdated, creationBlock, counter = 0;
+        var priceUpdated, creationBlock, counter = 0;
         mark.watch(config, function (err, updates, data) {
             assert.isNull(err);
             assert.isNotNull(mark.watcher);
@@ -204,9 +210,7 @@ describe("watch", function () {
                         ));
                         assert.strictEqual(abi.bignum(r.value).toNumber(), 0);
                     },
-                    onFailed: function (r) {
-                        done(r);
-                    }
+                    onFailed: done
                 });
                 var description = Math.random().toString(36).substring(4);
                 mark.augur.createEvent({
@@ -233,7 +237,6 @@ describe("watch", function () {
                             tradingFee: "0.02",
                             events: [ r.callReturn ],
                             onSent: function (res) {
-                                newMarketId = res.callReturn;
                                 assert.property(res, "txHash");
                                 assert.property(res, "callReturn");
                             },
@@ -243,16 +246,14 @@ describe("watch", function () {
                                 assert.property(res, "blockHash");
                                 assert.property(res, "blockNumber");
                             },
-                            onFailed: function (res) {
-                                done(res);
-                            }
+                            onFailed: done
                         }); // createMarket
                     },
-                    onFailed: function (r) {
-                        done(r);
-                    }
+                    onFailed: done
                 }); // createEvent
             }, 2500);
         }
     });
 });
+
+})();
