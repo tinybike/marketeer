@@ -13,7 +13,8 @@ var config = {
     limit: 0,
     filtering: true,
     interval: null,
-    scan: true
+    scan: true,
+    ipcpath: join(process.env.HOME, ".augur-test", "geth.ipc")
 };
 
 mark.debug = false;
@@ -39,6 +40,7 @@ log.write("Filtering:  " + chalk.white.dim(config.filtering) + '\n');
 log.write("Scan:       " + chalk.white.dim(config.scan) + '\n');
 log.write("Interval:   " + chalk.white.dim(config.interval) + '\n');
 log.write("Limit:      " + chalk.white.dim(config.limit) + '\n');
+log.write("IPC path:   " + chalk.white.dim(config.ipcpath) + '\n');
 
 mark.watch(config, function (err, code, data) {
     if (err) return log.write(timestamp(err) + '\n');
