@@ -21,6 +21,7 @@
     "async": "^1.4.2",
     "augur.js": "AugurProject/augur.js",
     "chalk": "^1.1.1",
+    "ipfs-api": "^2.4.0",
     "mongodb": "^2.0.42"
   },
   "devDependencies": {

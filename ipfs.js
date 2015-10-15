@@ -14,12 +14,14 @@ var config = {
     filtering: true,
     interval: null,
     scan: true,
+    ipfs: true,
     ipcpath: join(process.env.HOME, ".ethereum-augur", "geth.ipc")
 };
 
 mark.debug = false;
 
-var log = createWriteStream(join(__dirname, "marketeer.log"), { flags : 'a' });
+// var log = createWriteStream(join(__dirname, "marketeer.log"), { flags : 'a' });
+var log = process.stdout;
 
 function has_value(o, v) {
     for (var p in o) {
@@ -41,6 +43,7 @@ log.write("Scan:       " + chalk.white.dim(config.scan) + '\n');
 log.write("Interval:   " + chalk.white.dim(config.interval) + '\n');
 log.write("Limit:      " + chalk.white.dim(config.limit) + '\n');
 log.write("IPC path:   " + chalk.white.dim(config.ipcpath) + '\n');
+log.write("IPFS:       " + chalk.white.dim(config.ipfs) + '\n');
 
 mark.watch(config, function (err, code, data) {
     if (err) return log.write(timestamp(err) + '\n');

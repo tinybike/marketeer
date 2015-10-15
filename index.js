@@ -5,7 +5,10 @@
 
 "use strict";
 
+var fs = require("fs");
+var path = require("path");
 var async = require("async");
+var ipfsAPI = require("ipfs-api");
 var MongoClient = require("mongodb").MongoClient;
 
 var INTERVAL = 600000; // default update interval (10 minutes)
@@ -13,6 +16,8 @@ var INTERVAL = 600000; // default update interval (10 minutes)
 module.exports = {
 
     debug: false,
+
+    ipfs: null,
 
     db: null,
 
@@ -22,30 +27,51 @@ module.exports = {
 
     connect: function (config, callback) {
         var self = this;
-        MongoClient.connect(config.mongodb, function (err, db) {
-            if (err) {
-                if (callback) return callback(err);
-                throw err;
-            }
-            self.db = db;
-            self.augur.bignumbers = false;
+        if (config.ipfs) {
+            this.ipfs = ipfsAPI("localhost", "5001");
             if (callback) {
-                self.augur.connect(config.ethereum, config.ipcpath, function () {
+                this.augur.connect(config.ethereum, config.ipcpath, function () {
                     if (callback) callback(null);
                 });
             } else {
-               self.augur.connect(config.ethereum, config.ipcpath);
+               this.augur.connect(config.ethereum, config.ipcpath);
             }
-        });
+        } else {
+            MongoClient.connect(config.mongodb, function (err, db) {
+                if (err) {
+                    if (callback) return callback(err);
+                    throw err;
+                }
+                self.db = db;
+                if (callback) {
+                    self.augur.connect(config.ethereum, config.ipcpath, function () {
+                        if (callback) callback(null);
+                    });
+                } else {
+                   self.augur.connect(config.ethereum, config.ipcpath);
+                }
+            });
+        }
     },
 
     disconnect: function () {
-        this.db.close();
-        this.db = null;
+        if (this.db && typeof this.db === "object") {
+            this.db.close();
+            this.db = null;
+        }
+        if (this.ipfs) this.ipfs = null;
     },
 
     remove: function (market, callback) {
-        if (this.db) {
+        if (this.ipfs) {
+            fs.unlink(path.join("markets", market.replace("0x", '')), function (err) {
+                if (err) {
+                    if (callback) return callback(err);
+                    throw err;
+                }
+                if (callback) callback(null, { result: { n: 1, ok: 1 } });
+            });
+        } else if (this.db) {
             this.db.collection("markets").remove({ _id: market }, function (err, result) {
                 if (err) {
                     if (callback) return callback(err);
@@ -57,19 +83,67 @@ module.exports = {
     },
 
     select: function (market, callback) {
-        if (this.db) {
-            this.db.collection("markets").findOne({ _id: market }, function (err, result) {
+        // markets: Qmaqg8PsZQuYUpVujPH7z4UJvSVgh89yZDwicf1xs3rDFV
+        if (this.ipfs) {
+            market = market.replace("0x", '');
+            var id = path.join("markets", market);
+            fs.exists(id, function (exists) {
+                if (exists) {
+                    fs.readFile(id, "utf8", function (err, doc) {
+                        if (err) {
+                            if (err.code === "ENOENT") return callback(null, null);
+                            if (callback) return callback(err);
+                            throw err;
+                        }
+                        if (callback) callback(null, JSON.parse(doc));
+                    });
+                } else {
+                    ipfs.cat(market, function (err, res) {
+                        if (err || !res) {
+                            if (callback) return callback(err);
+                        }
+                        if (res.readable) {
+                            // Returned as a stream
+                            res.pipe(process.stdout);
+                        } else {
+                            // Returned as a string
+                            console.log(res);
+                        }
+                    });
+                }
+            });
+        } else if (this.db) {
+            this.db.collection("markets").findOne({ _id: market }, function (err, doc) {
                 if (err) {
                     if (callback) return callback(err);
                     throw err;
                 }
-                if (callback) callback(null, result);
+                if (callback) callback(null, doc);
             });
         }
     },
 
     upsert: function (doc, callback) {
-        if (this.db) {
+        var self = this;
+        if (this.ipfs) {
+            var id = path.join("markets", doc._id.replace("0x", ''));
+            var json = JSON.stringify(doc, null, 4);
+            fs.writeFile(id, json, "utf8", function (err) {
+                if (err) {
+                    if (callback) return callback(err);
+                } else {
+                    self.ipfs.add(id, function (err, res) {
+                        if (err || !res) {
+                            if (callback) return callback(err);
+                        } else {
+                            res.forEach(function (file) {
+                                if (callback) callback(null, file.Hash);
+                            });
+                        }
+                    });
+                }
+            });
+        } else if (this.db) {
             this.db.collection("markets").save(doc, { upsert: true }, function (err) {
                 if (err) {
                     if (callback) return callback(err);
@@ -381,7 +455,7 @@ module.exports = {
     scan: function (config, callback) {
         var self = this;
         config = config || {};
-        if (this.db && typeof this.db === "object") {
+        if (this.ipfs || (this.db && typeof this.db === "object")) {
             this.augur.getCreationBlocks(this.augur.branches.dev, function (creationBlock) {
                 self.augur.getPriceHistory(self.augur.branches.dev, function (priceHistory) {
                     self.augur.getMarkets(self.augur.branches.dev, function (markets) {
