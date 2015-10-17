@@ -29,28 +29,30 @@ module.exports = {
         var self = this;
         if (config.ipfs) {
             this.ipfs = ipfsAPI("localhost", "5001");
-            if (callback) {
-                this.augur.connect(config.ethereum, config.ipcpath, function () {
-                    if (callback) callback(null);
+            if (config.mongodb) {
+                MongoClient.connect(config.mongodb, function (err, db) {
+                    if (err) {
+                        if (callback) return callback(err);
+                        throw err;
+                    }
+                    self.db = db;
+                    if (callback) {
+                        self.augur.connect(config.ethereum, config.ipcpath, function () {
+                            callback(null);
+                        });
+                    } else {
+                       self.augur.connect(config.ethereum, config.ipcpath);
+                    }
                 });
             } else {
-               this.augur.connect(config.ethereum, config.ipcpath);
-            }
-        } else {
-            MongoClient.connect(config.mongodb, function (err, db) {
-                if (err) {
-                    if (callback) return callback(err);
-                    throw err;
-                }
-                self.db = db;
                 if (callback) {
                     self.augur.connect(config.ethereum, config.ipcpath, function () {
-                        if (callback) callback(null);
+                        callback(null);
                     });
                 } else {
                    self.augur.connect(config.ethereum, config.ipcpath);
                 }
-            });
+            }
         }
     },
 
@@ -63,93 +65,145 @@ module.exports = {
     },
 
     remove: function (market, callback) {
-        if (this.ipfs) {
-            fs.unlink(path.join("markets", market.replace("0x", '')), function (err) {
-                if (err) {
-                    if (callback) return callback(err);
-                    throw err;
-                }
-                if (callback) callback(null, { result: { n: 1, ok: 1 } });
-            });
-        } else if (this.db) {
+        var docpath = path.join("markets", market.replace("0x", ''));
+        if (this.db) {
             this.db.collection("markets").remove({ _id: market }, function (err, result) {
                 if (err) {
                     if (callback) return callback(err);
-                    throw err;
+                } else {
+                    fs.exists(docpath, function (exists) {
+                        if (exists) {
+                            fs.unlink(docpath, function (err) {
+                                if (err) {
+                                    if (callback) return callback(err);
+                                    throw err;
+                                }
+                                if (callback) callback(null, result);
+                            });
+                        } else {
+                            if (callback) callback(null, result);
+                        }
+                    });
                 }
-                if (callback) callback(null, result);
+            });
+        } else {
+            fs.exists(docpath, function (exists) {
+                if (exists) {
+                    fs.unlink(docpath, function (err) {
+                        if (err) {
+                            if (callback) return callback(err);
+                            throw err;
+                        }
+                        if (callback) callback(null, {result: {n: 1, ok: 1}});
+                    });
+                } else {
+                    if (callback) callback(null, {result: {n: 1, ok: 1}});
+                }
             });
         }
     },
 
+    // get IPFS hash from file
+    documentToHash: function (docpath, callback) {
+        var self = this;
+        fs.exists(docpath, function (exists) {
+            if (exists) {
+                return self.ipfs.add(docpath, function (err, res) {
+                    if (err || !res) return callback(err);
+                    res.forEach(function (file) {
+                        callback(null, file.Hash);
+                    });
+                });
+            }
+            callback(null, null);
+        });
+    },
+
+    // select market using IPFS hash
+    selectHash: function (ipfsHash, callback) {
+        if (this.ipfs && ipfsHash && callback) {
+            var doc = "";
+            this.ipfs.cat(ipfsHash, function (err, res) {
+                if (err || !res) return callback(err);
+                res.on("data", function (chunk) {
+                    doc += chunk;
+                });
+                res.on("end", function () {
+                    try {
+                        callback(null, JSON.parse(doc));
+                    } catch (ex) {
+                        callback(ex);
+                    }
+                });
+            });
+        }
+    },
+
+    // select market using market ID
+    // markets: Qmaqg8PsZQuYUpVujPH7z4UJvSVgh89yZDwicf1xs3rDFV
     select: function (market, callback) {
-        // markets: Qmaqg8PsZQuYUpVujPH7z4UJvSVgh89yZDwicf1xs3rDFV
-        if (this.ipfs) {
-            market = market.replace("0x", '');
-            var id = path.join("markets", market);
-            fs.exists(id, function (exists) {
-                if (exists) {
-                    fs.readFile(id, "utf8", function (err, doc) {
-                        if (err) {
-                            if (err.code === "ENOENT") return callback(null, null);
-                            if (callback) return callback(err);
-                            throw err;
-                        }
-                        if (callback) callback(null, JSON.parse(doc));
-                    });
-                } else {
-                    ipfs.cat(market, function (err, res) {
-                        if (err || !res) {
-                            if (callback) return callback(err);
-                        }
-                        if (res.readable) {
-                            // Returned as a stream
-                            res.pipe(process.stdout);
-                        } else {
-                            // Returned as a string
-                            console.log(res);
-                        }
-                    });
-                }
-            });
-        } else if (this.db) {
-            this.db.collection("markets").findOne({ _id: market }, function (err, doc) {
-                if (err) {
-                    if (callback) return callback(err);
-                    throw err;
-                }
-                if (callback) callback(null, doc);
-            });
+        var self = this;
+        if (market && callback) {
+            if (this.db) {
+                this.db.collection("markets").findOne({ _id: market }, function (err, doc) {
+                    if (err) return callback(err);
+                    callback(null, doc);
+                });
+            } else if (this.ipfs) {
+                var docpath = path.join("markets", market.replace("0x", ''));
+                this.documentToHash(docpath, function (err, ipfsHash) {
+                    if (err) return callback(err);
+                    if (!ipfsHash) return callback(null, null);
+                    self.selectHash(ipfsHash, callback);
+                });
+            }
         }
     },
 
     upsert: function (doc, callback) {
         var self = this;
-        if (this.ipfs) {
-            var id = path.join("markets", doc._id.replace("0x", ''));
-            var json = JSON.stringify(doc, null, 4);
-            fs.writeFile(id, json, "utf8", function (err) {
-                if (err) {
-                    if (callback) return callback(err);
-                } else {
-                    self.ipfs.add(id, function (err, res) {
-                        if (err || !res) {
-                            if (callback) return callback(err);
-                        } else {
-                            res.forEach(function (file) {
-                                if (callback) callback(null, file.Hash);
-                            });
-                        }
-                    });
-                }
-            });
-        } else if (this.db) {
+        var docpath = path.join("markets", doc._id.replace("0x", ''));
+        if (this.db) {
             this.db.collection("markets").save(doc, { upsert: true }, function (err) {
                 if (err) {
                     if (callback) return callback(err);
                     throw err;
                 }
-                if (callback) callback(null, true);
+                fs.writeFile(docpath, JSON.stringify(doc, null, 4), "utf8", function (err) {
+                    if (err) {
+                        if (callback) return callback(err);
+                    } else {
+                        if (self.ipfs) {
+                            self.ipfs.add(docpath, function (err, res) {
+                                if (err || !res) {
+                                    if (callback) return callback(err);
+                                } else {
+                                    res.forEach(function (file) {
+                                        if (callback) callback(null, file.Hash);
+                                    });
+                                }
+                            });
+                        }
+                    }
+                });
+            });
+        } else {
+            fs.writeFile(docpath, JSON.stringify(doc, null, 4), "utf8", function (err) {
+                if (err) {
+                    if (callback) return callback(err);
+                } else {
+                    if (self.ipfs) {
+                        self.ipfs.add(docpath, function (err, res) {
+                            if (err || !res) {
+                                if (callback) return callback(err);
+                            } else {
+                                res.forEach(function (file) {
+                                    if (callback) callback(null, file.Hash);
+                                });
+                            }
+                        });
+                    }
+                }
             });
         }
     },
@@ -495,10 +549,7 @@ module.exports = {
             });
         } else {
             this.connect(config, function (err) {
-                if (err) {
-                    if (callback) return callback(err);
-                    throw err;
-                }
+                if (err) return callback(err);
                 self.augur.connect(config.ethereum);
                 self.scan(config, callback);
             });

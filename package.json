@@ -1,11 +1,11 @@
 {
   "name": "marketeer",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Market monitor",
   "main": "index.js",
   "scripts": {
     "test": "mocha test/marketeer.js",
-    "lint": "jshint *.js"
+    "lint": "jshint index.js"
   },
   "repository": {
     "type": "git",
