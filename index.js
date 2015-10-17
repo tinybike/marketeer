@@ -28,20 +28,20 @@ module.exports = {
     connect: function (config, callback) {
         var self = this;
         if (config.ipfs) {
-            this.ipfs = ipfsAPI("localhost", "5001");
+            this.ipfs = ipfsAPI(config.ipfs.host || "localhost", config.ipfs.port || "5001");
             if (config.mongodb) {
                 MongoClient.connect(config.mongodb, function (err, db) {
                     if (err) {
                         if (callback) return callback(err);
-                        throw err;
-                    }
-                    self.db = db;
-                    if (callback) {
-                        self.augur.connect(config.ethereum, config.ipcpath, function () {
-                            callback(null);
-                        });
                     } else {
-                       self.augur.connect(config.ethereum, config.ipcpath);
+                        self.db = db;
+                        if (callback) {
+                            self.augur.connect(config.ethereum, config.ipcpath, function () {
+                                callback(null);
+                            });
+                        } else {
+                           self.augur.connect(config.ethereum, config.ipcpath);
+                        }
                     }
                 });
             } else {
@@ -74,11 +74,10 @@ module.exports = {
                     fs.exists(docpath, function (exists) {
                         if (exists) {
                             fs.unlink(docpath, function (err) {
-                                if (err) {
-                                    if (callback) return callback(err);
-                                    throw err;
+                                if (callback) {
+                                    if (err) return callback(err);
+                                    callback(null, result);
                                 }
-                                if (callback) callback(null, result);
                             });
                         } else {
                             if (callback) callback(null, result);
@@ -90,11 +89,10 @@ module.exports = {
             fs.exists(docpath, function (exists) {
                 if (exists) {
                     fs.unlink(docpath, function (err) {
-                        if (err) {
-                            if (callback) return callback(err);
-                            throw err;
+                        if (callback) {
+                            if (err) return callback(err);
+                            callback(null, {result: {n: 1, ok: 1}});
                         }
-                        if (callback) callback(null, {result: {n: 1, ok: 1}});
                     });
                 } else {
                     if (callback) callback(null, {result: {n: 1, ok: 1}});
@@ -108,7 +106,7 @@ module.exports = {
         var self = this;
         fs.exists(docpath, function (exists) {
             if (exists) {
-                return self.ipfs.add(docpath, function (err, res) {
+                return self.ipfs.add(docpath, {recursive: true}, function (err, res) {
                     if (err || !res) return callback(err);
                     res.forEach(function (file) {
                         callback(null, file.Hash);
@@ -116,6 +114,27 @@ module.exports = {
                 });
             }
             callback(null, null);
+        });
+    },
+
+    // IPFS hash of markets directory
+    directoryHash: function (callback) {
+        return this.ipfs.add("./markets", {recursive: true}, function (err, res) {
+            if (err || !res) return callback(err);
+            var mangled = res.slice(res.indexOf('"Name": "markets"'), res.length-1);
+            var start = mangled.indexOf("Qm");
+            callback(null, mangled.slice(start, start + 46));
+        });
+    },
+
+    // publish markets directory using IPNS
+    publishMarkets: function (callback) {
+        var self = this;
+        this.directoryHash(function (err, ipfsHash) {
+            self.ipfs.name.publish(ipfsHash, function (err, res) {
+                if (err) return callback(err);
+                console.log("published:", res);
+            });
         });
     },
 
@@ -140,7 +159,6 @@ module.exports = {
     },
 
     // select market using market ID
-    // markets: Qmaqg8PsZQuYUpVujPH7z4UJvSVgh89yZDwicf1xs3rDFV
     select: function (market, callback) {
         var self = this;
         if (market && callback) {
@@ -164,28 +182,28 @@ module.exports = {
         var self = this;
         var docpath = path.join("markets", doc._id.replace("0x", ''));
         if (this.db) {
-            this.db.collection("markets").save(doc, { upsert: true }, function (err) {
+            this.db.collection("markets").save(doc, {upsert: true}, function (err) {
                 if (err) {
                     if (callback) return callback(err);
-                    throw err;
-                }
-                fs.writeFile(docpath, JSON.stringify(doc, null, 4), "utf8", function (err) {
-                    if (err) {
-                        if (callback) return callback(err);
-                    } else {
-                        if (self.ipfs) {
-                            self.ipfs.add(docpath, function (err, res) {
-                                if (err || !res) {
-                                    if (callback) return callback(err);
-                                } else {
-                                    res.forEach(function (file) {
-                                        if (callback) callback(null, file.Hash);
-                                    });
-                                }
-                            });
+                } else {
+                    fs.writeFile(docpath, JSON.stringify(doc, null, 4), "utf8", function (err) {
+                        if (err) {
+                            if (callback) return callback(err);
+                        } else {
+                            if (self.ipfs) {
+                                self.ipfs.add(docpath, {recursive: true}, function (err, res) {
+                                    if (err || !res) {
+                                        if (callback) return callback(err);
+                                    } else {
+                                        res.forEach(function (file) {
+                                            if (callback) callback(null, file.Hash);
+                                        });
+                                    }
+                                });
+                            }
                         }
-                    }
-                });
+                    });
+                }
             });
         } else {
             fs.writeFile(docpath, JSON.stringify(doc, null, 4), "utf8", function (err) {
@@ -238,10 +256,7 @@ module.exports = {
                 doc.network = version;
             }
             self.select(market, function (err, storedDoc) {
-                if (err) {
-                    if (callback) return callback(err);
-                    throw err;
-                }
+                if (err) return callback(err);
                 if (storedDoc) {
                     for (var k in storedDoc) {
                         if (!storedDoc.hasOwnProperty(k)) continue;
@@ -595,42 +610,41 @@ module.exports = {
 
         this.connect(config, function (err) {
             if (err) {
-                if (callback) return callback(err);
-                throw err;
-            }
-            if (self.debug) console.log("Connected");
-            if (config.filtering) {
-                self.augur.filters.listen({
-                    /**
-                        { user: '0x05ae1d0ca6206c6168b42efcd1fbe0ed144e821b',
-                          marketId: '-0xcaa8317a2d53b432c94180c591f09c30594e72cb6f747ef12be1bb5504c664bc',
-                          outcome: '1',
-                          price: '1.00000000000000002255',
-                          cost: '-1.00000000000000008137',
-                          blockNumber: '4722' }
-                     */
-                    price: collectFiltrate,
-                    /**
-                        { marketId: "-0x65ba5a9c2db024df5cdd4db31a0343608758ebdfcd69bf4eb1810d77502b932e",
-                          blockNumber: "20542" }
-                     */
-                    creation: collectFiltrate
-                });
-            }
-            (function pulse() {
-                if (config.scan) {
-                    self.scan(config, function (err, updates) {
-                        if (err) {
-                            if (callback) return callback(err);
-                            throw err;
-                        }
-                        if (callback) callback(null, updates);
+                if (callback) callback(err);
+            } else {
+                if (self.debug) console.log("Connected");
+                if (config.filtering) {
+                    self.augur.filters.listen({
+                        /**
+                            { user: '0x05ae1d0ca6206c6168b42efcd1fbe0ed144e821b',
+                              marketId: '-0xcaa8317a2d53b432c94180c591f09c30594e72cb6f747ef12be1bb5504c664bc',
+                              outcome: '1',
+                              price: '1.00000000000000002255',
+                              cost: '-1.00000000000000008137',
+                              blockNumber: '4722' }
+                         */
+                        price: collectFiltrate,
+                        /**
+                            { marketId: "-0x65ba5a9c2db024df5cdd4db31a0343608758ebdfcd69bf4eb1810d77502b932e",
+                              blockNumber: "20542" }
+                         */
+                        creation: collectFiltrate
                     });
-                    if (config.interval) {
-                        self.watcher = setTimeout(pulse, config.interval || INTERVAL);
-                    }
                 }
-            })();
+                (function pulse() {
+                    if (config.scan) {
+                        self.scan(config, function (err, updates) {
+                            if (callback) {
+                                if (err) return callback(err);
+                                callback(null, updates);
+                            }
+                        });
+                        if (config.interval) {
+                            self.watcher = setTimeout(pulse, config.interval || INTERVAL);
+                        }
+                    }
+                })();
+            }
         });
     },
 

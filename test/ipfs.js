@@ -82,7 +82,7 @@ var config = {
     limit: 2,
     interval: 30000,
     scan: true,
-    ipfs: true,
+    ipfs: { host: "127.0.0.1", port: "5001" },
     ipcpath: path.join(process.env.HOME, ".ethereum-augur", "geth.ipc")
 };
 
