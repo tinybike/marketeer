@@ -61,16 +61,22 @@ exec start-stop-daemon --start --chuid $USER --exec ${IPFS_BIN} -- daemon >> ${I
 EOL
 sudo chmod 644 $IPFS_UPSTART
 
-# update firewall: open port 5001
-echo -e "Opening port ${BLUE}5001${NC}..."
-UDP="INPUT -p udp --dport 5001 -j ACCEPT"
-TCP="INPUT -p tcp --dport 5001 -j ACCEPT"
-set +e
-sudo iptables -D $UDP >> /dev/null 2>&1
-sudo iptables -D $TCP >> /dev/null 2>&1
-set -e
-sudo iptables -A $UDP
-sudo iptables -A $TCP
+# update firewall: open ports 4001 and 5001
+declare -a ports=("4001" "5001")
+for port in "${ports[@]}"; do
+    UDP="INPUT -p udp --dport ${port} -j ACCEPT"
+    TCP="INPUT -p tcp --dport ${port} -j ACCEPT"
+    set +e
+    sudo iptables -D $UDP >> /dev/null 2>&1
+    sudo iptables -D $TCP >> /dev/null 2>&1
+    set -e
+    sudo iptables -A $UDP
+    sudo iptables -A $TCP
+    echo -e "Opened port ${BLUE}${port}${NC}"
+done
+
+# set gateway port to 8800
+${IPFS_BIN} config Addresses.Gateway /ip4/127.0.0.1/tcp/8800
 
 # start ipfs
 sudo service ipfs status | grep start >> /dev/null && sudo service ipfs stop
