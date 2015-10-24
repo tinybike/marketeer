@@ -78,6 +78,10 @@ done
 # set gateway port to 8800
 ${IPFS_BIN} config Addresses.Gateway /ip4/127.0.0.1/tcp/8800
 
+ipfs config --json API.HTTPHeaders.Access-Control-Allow-Origin '["*"]'
+ipfs config --json API.HTTPHeaders.Access-Control-Allow-Methods '["PUT", "GET", "POST"]'
+ipfs config --json API.HTTPHeaders.Access-Control-Allow-Credentials '["true"]'
+
 # start ipfs
 sudo service ipfs status | grep start >> /dev/null && sudo service ipfs stop
 sudo service ipfs start
