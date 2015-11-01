@@ -20,4 +20,4 @@ before_script:
 
 script:
   - npm run lint
-  - istanbul cover -x **/lib/** ./node_modules/mocha/bin/_mocha test/marketeer.js --report lcovonly -- -R spec && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js && rm -rf ./coverage
+  - travis_wait travis_retry istanbul cover -x **/lib/** ./node_modules/mocha/bin/_mocha test/marketeer.js --report lcovonly -- -R spec && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js && rm -rf ./coverage
