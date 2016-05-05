@@ -14,7 +14,7 @@ var config = {
     filtering: true,
     interval: null,
     scan: true,
-    ipcpath: join(process.env.HOME, ".ethereum-augur", "geth.ipc")
+    ipcpath: join(process.env.HOME, ".ethereum-of-the-moment", "geth.ipc")
 };
 
 mark.debug = false;

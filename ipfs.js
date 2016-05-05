@@ -15,7 +15,7 @@ var config = {
     interval: null,
     scan: true,
     ipfs: { host: "localhost", port: "5001" },
-    ipcpath: join(process.env.HOME, ".ethereum-augur", "geth.ipc")
+    ipcpath: join(process.env.HOME, ".ethereum-of-the-moment", "geth.ipc")
 };
 
 mark.debug = false;

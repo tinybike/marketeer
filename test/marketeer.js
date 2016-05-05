@@ -1,4 +1,3 @@
-(function () {
 /**
  * Marketeer unit tests.
  * @author Jack Peterson (jack@tinybike.net)
@@ -18,9 +17,11 @@ var DEBUG = false;
 var TIMEOUT = 60000;
 
 var config = {
-    ethereum: "http://eth1.augur.net",
+    // ethereum: "https://eth3.augur.net",
+    ethereum: "http://127.0.0.1:8545",
+    ipcpath: "/home/jack/.ethereum-2/testnet/geth.ipc",
     mongodb: "mongodb://localhost:27017/marketeer?poolSize=5&noDelay=true&connectTimeoutMS=0&socketTimeoutMS=0",
-    limit: 1,
+    limit: 30,
     interval: 30000,
     scan: true,
     filtering: !process.env.CONTINUOUS_INTEGRATION
@@ -31,7 +32,7 @@ describe("select", function () {
     it("retrieve and verify document", function (done) {
         this.timeout(TIMEOUT);
         var id = abi.prefix_hex(crypto.randomBytes(32).toString("hex"));
-        var doc = { _id: id, data: "booyah" };
+        var doc = {_id: id, data: "booyah"};
         mark.connect(config, function (err) {
             assert.isNull(err);
             mark.upsert(doc, function (err, result) {
@@ -60,7 +61,7 @@ describe("upsert", function () {
     it("insert and update document", function (done) {
         this.timeout(TIMEOUT);
         var id = abi.prefix_hex(crypto.randomBytes(32).toString("hex"));
-        var doc = { _id: id, data: "hello world" };
+        var doc = {_id: id, data: "hello world"};
         mark.connect(config, function (err) {
             assert.isNull(err);
             mark.upsert(doc, function (err, result) {
@@ -103,7 +104,7 @@ describe("scan", function () {
     if (config.filtering) config.ethereum = "http://127.0.0.1:8545";
 
     it("fetch market info from the blockchain and save to db", function (done) {
-        this.timeout(TIMEOUT);
+        this.timeout(TIMEOUT*100);
         mark.connect(config, function (err) {
             assert.isNull(err);
             mark.scan(config, function (err, updates) {
@@ -116,7 +117,7 @@ describe("scan", function () {
     });
 
     it("fetch market info from the blockchain, set up db connection, then save to db", function (done) {
-        this.timeout(TIMEOUT);
+        this.timeout(TIMEOUT*100);
         mark.scan(config, function (err, updates) {
             assert.isNull(err);
             assert.strictEqual(updates, config.limit);
@@ -255,5 +256,3 @@ describe("watch", function () {
         }
     });
 });
-
-})();
