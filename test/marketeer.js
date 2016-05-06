@@ -186,79 +186,93 @@ describe("watch", function () {
         });
         if (config.filtering) {
             setTimeout(function () {
-                mark.augur.trade({
-                    branchId: branch,
-                    marketId: marketId,
-                    outcome: outcome,
-                    amount: amount,
-                    onCommitTradeSent: function (r) {
-                        assert.property(r, "txHash");
-                        assert.property(r, "callReturn");
-                    },
-                    onCommitTradeSuccess: function (r) {
-                        assert.property(r, "txHash");
-                        assert.property(r, "callReturn");
-                    },
-                    onTradeSent: function (r) {
-                        assert.property(r, "txHash");
-                        assert.property(r, "callReturn");
-                    },
-                    onTradeSuccess: function (r) {
-                        assert.property(r, "txHash");
-                        assert.property(r, "callReturn");
-                        assert.property(r, "blockHash");
-                        assert.property(r, "blockNumber");
-                        assert.isAbove(abi.bignum(r.blockNumber).toNumber(), 0);
-                        assert(abi.bignum(r.from).eq(
-                            abi.bignum(mark.augur.coinbase)
-                        ));
-                        assert(abi.bignum(r.to).eq(
-                            abi.bignum(mark.augur.contracts.buyAndSellShares)
-                        ));
-                        assert.strictEqual(abi.bignum(r.value).toNumber(), 0);
-                    },
-                    onCommitTradeFailed: done,
-                    onTradeFailed: done
+                var desc = Math.random().toString(36).substring(4);
+                mark.augur.rpc.blockNumber(function (blockNumber) {
+                    assert.notProperty(blockNumber, "error");
+                    var expBlock = parseInt(blockNumber) + 2500;
+                    console.log("creating:", {
+                        branchId: branch,
+                        description: desc,
+                        expirationBlock: expBlock,
+                        minValue: 1,
+                        maxValue: 2,
+                        numOutcomes: 2,
+                        alpha: "0.0079",
+                        initialLiquidity: 100,
+                        tradingFee: "0.02"
+                    });
+                    mark.augur.createSingleEventMarket({
+                        branchId: branch,
+                        description: desc,
+                        expirationBlock: expBlock,
+                        minValue: 1,
+                        maxValue: 2,
+                        numOutcomes: 2,
+                        alpha: "0.0079",
+                        initialLiquidity: 100,
+                        tradingFee: "0.02",
+                        onSent: function (r) {
+                            console.log("createSingleEventMarket sent:", r);
+                            assert.property(r, "txHash");
+                            assert.property(r, "callReturn");
+                        },
+                        onSuccess: function (r) {
+                            console.log("createSingleEventMarket success:", r);
+                            assert.property(r, "txHash");
+                            assert.property(r, "callReturn");
+                            assert.property(r, "blockHash");
+                            assert.property(r, "blockNumber");
+                            mark.augur.trade({
+                                branchId: branch,
+                                marketId: marketId,
+                                outcome: outcome,
+                                amount: amount,
+                                limit: 0,
+                                callbacks: {
+                                    onMarketHash: function (r) {
+                                        console.log("marketHash:", r);
+                                    },
+                                    onCommitTradeSent: function (r) {
+                                        console.log("commitTradeSent:", r);
+                                        assert.property(r, "txHash");
+                                        assert.property(r, "callReturn");
+                                    },
+                                    onCommitTradeSuccess: function (r) {
+                                        console.log("commitTradeSuccess:", r);
+                                        assert.property(r, "txHash");
+                                        assert.property(r, "callReturn");
+                                    },
+                                    onNextBlock: function (r) {
+                                        console.log("nextBlock:", r);
+                                    },
+                                    onTradeSent: function (r) {
+                                        console.log("tradeSent:", r);
+                                        assert.property(r, "txHash");
+                                        assert.property(r, "callReturn");
+                                    },
+                                    onTradeSuccess: function (r) {
+                                        console.log("tradeSuccess:", r);
+                                        assert.property(r, "txHash");
+                                        assert.property(r, "callReturn");
+                                        assert.property(r, "blockHash");
+                                        assert.property(r, "blockNumber");
+                                        assert.isAbove(abi.bignum(r.blockNumber).toNumber(), 0);
+                                        assert(abi.bignum(r.from).eq(
+                                            abi.bignum(mark.augur.coinbase)
+                                        ));
+                                        assert(abi.bignum(r.to).eq(
+                                            abi.bignum(mark.augur.contracts.buyAndSellShares)
+                                        ));
+                                        assert.strictEqual(abi.bignum(r.value).toNumber(), 0);
+                                    },
+                                    onCommitTradeFailed: done,
+                                    onTradeFailed: done
+                                }
+                            });
+                        },
+                        onFailed: done
+                    }); // createEvent
                 });
-                var description = Math.random().toString(36).substring(4);
-                mark.augur.createEvent({
-                    branchId: mark.augur.branches.dev,
-                    description: description,
-                    expDate: mark.augur.rpc.blockNumber() + 2500,
-                    minValue: 1,
-                    maxValue: 2,
-                    numOutcomes: 2,
-                    onSent: function (r) {
-                        assert.property(r, "txHash");
-                        assert.property(r, "callReturn");
-                    },
-                    onSuccess: function (r) {
-                        assert.property(r, "txHash");
-                        assert.property(r, "callReturn");
-                        assert.property(r, "blockHash");
-                        assert.property(r, "blockNumber");
-                        mark.augur.createMarket({
-                            branchId: mark.augur.branches.dev,
-                            description: description,
-                            alpha: "0.0079",
-                            initialLiquidity: 10,
-                            tradingFee: "0.02",
-                            events: [ r.callReturn ],
-                            onSent: function (res) {
-                                assert.property(res, "txHash");
-                                assert.property(res, "callReturn");
-                            },
-                            onSuccess: function (res) {
-                                assert.property(res, "txHash");
-                                assert.property(res, "callReturn");
-                                assert.property(res, "blockHash");
-                                assert.property(res, "blockNumber");
-                            },
-                            onFailed: done
-                        }); // createMarket
-                    },
-                    onFailed: done
-                }); // createEvent
             }, 2500);
         }
     });

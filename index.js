@@ -102,11 +102,11 @@ module.exports = {
                         callback: function (marketsInfo) {
                             if (!marketsInfo || marketsInfo.error) return next(marketsInfo || "getMarketsInfo");
                             async.each(marketsInfo, function (marketInfo, nextMarket) {
-                                self.augur.getMarketCreationBlock(marketInfo._id, function (creationBlock) {
+                                self.augur.getMarketCreationBlock(marketInfo._id, {toBlock: marketInfo.endDate}, function (creationBlock) {
                                     if (creationBlock && !creationBlock.error) {
                                         marketInfo.creationBlock = creationBlock;
                                     }
-                                    self.augur.getMarketPriceHistory(marketInfo._id, {fromBlock: marketInfo.creationBlock || "0x1"}, function (priceHistory) {
+                                    self.augur.getMarketPriceHistory(marketInfo._id, {fromBlock: marketInfo.creationBlock || "0x1", toBlock: marketInfo.endDate}, function (priceHistory) {
                                         if (priceHistory && !priceHistory.error) {
                                             marketInfo.priceHistory = priceHistory;
                                         }
