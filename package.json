@@ -19,9 +19,10 @@
   "homepage": "https://github.com/AugurProject/marketeer#readme",
   "dependencies": {
     "async": "^1.4.2",
-    "augur.js": "0.10.1",
+    "augur.js": "0.19.13",
     "chalk": "^1.1.1",
-    "mongodb": "^2.0.42"
+    "levelup": "^1.3.1",
+    "leveldown" : "^1.4.6"
   },
   "devDependencies": {
     "augur-abi": "^0.2.6",

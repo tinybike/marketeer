@@ -6,7 +6,7 @@
 "use strict";
 
 var async = require("async");
-var MongoClient = require("mongodb").MongoClient;
+var levelup = require('levelup');
 
 var INTERVAL = 600000; // default update interval (10 minutes)
 var noop = function () {};
@@ -23,8 +23,9 @@ module.exports = {
 
     connect: function (config, callback) {
         var self = this;
-        if (config.mongodb) {
-            MongoClient.connect(config.mongodb, function (err, db) {
+        if (config.leveldb) {
+            levelup(config.leveldb, function (err, db) {
+            //MongoClient.connect(config.leveldb, function (err, db) {
                 if (err) return callback(err);
                 self.db = db;
                 if (callback) {
@@ -45,30 +46,30 @@ module.exports = {
         }
     },
 
-    remove: function (market, callback) {
-        if (!this.db) return callback("mongodb not found");
+    remove: function (id, callback) {
+        if (!this.db) return callback("db not found");
         callback = callback || noop;
-        this.db.collection("markets").remove({_id: market}, function (err, result) {
-            if (err) return callback(err);
-            callback(null, result);
+        this.db.del(id, function (err) {
+            return callback(err);
         });
     },
 
     // select market using market ID
-    select: function (market, callback) {
-        if (!this.db) return callback("mongodb not found");
-        if (!market) return callback("no market specified");
+    select: function (id, callback) {
+        if (!this.db) return callback("db not found");
+        console.log(id);
+        if (!id) return callback("no market specified");
         callback = callback || function (e, r) { console.log(e, r); };
-        this.db.collection("markets").findOne({_id: market}, function (err, doc) {
+        this.db.get(id, function (err, value) {
             if (err) return callback(err);
-            callback(null, doc);
+            callback(null, value);
         });
     },
 
     upsert: function (doc, callback) {
-        if (!this.db) return callback("mongodb not found");
+        if (!this.db) return callback("db not found");
         callback = callback || noop;
-        this.db.collection("markets").save(doc, {upsert: true}, function (err) {
+        this.db.put(doc._id, doc, function (err) {
             if (err) return callback(err);
             callback(null, true);
         });
