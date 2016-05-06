@@ -84,6 +84,7 @@ module.exports = {
 
             // request data from geth via JSON RPC
             self.augur.getNumMarketsBranch(branchId, function (numMarkets) {
+                if (!numMarkets || isNaN(numMarkets)) return callback("no markets found");
                 numMarkets = parseInt(numMarkets);
                 numMarkets = (config.limit) ? Math.min(config.limit, numMarkets) : numMarkets;
                 var numPages = Math.ceil(numMarkets / Number(marketsPerPage));
