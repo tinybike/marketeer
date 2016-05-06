@@ -5,8 +5,6 @@
 
 "use strict";
 
-var fs = require("fs");
-var path = require("path");
 var async = require("async");
 var MongoClient = require("mongodb").MongoClient;
 
@@ -60,7 +58,6 @@ module.exports = {
     select: function (market, callback) {
         if (!this.db) return callback("mongodb not found");
         if (!market) return callback("no market specified");
-        var self = this;
         callback = callback || function (e, r) { console.log(e, r); };
         this.db.collection("markets").findOne({_id: market}, function (err, doc) {
             if (err) return callback(err);
@@ -70,7 +67,6 @@ module.exports = {
 
     upsert: function (doc, callback) {
         if (!this.db) return callback("mongodb not found");
-        var self = this;
         callback = callback || noop;
         this.db.collection("markets").save(doc, {upsert: true}, function (err) {
             if (err) return callback(err);
@@ -109,7 +105,6 @@ module.exports = {
                                     if (creationBlock && !creationBlock.error) {
                                         marketInfo.creationBlock = creationBlock;
                                     }
-                                    var start = new Date().getTime();
                                     self.augur.getMarketPriceHistory(marketInfo._id, {fromBlock: marketInfo.creationBlock || "0x1"}, function (priceHistory) {
                                         if (priceHistory && !priceHistory.error) {
                                             marketInfo.priceHistory = priceHistory;
@@ -142,20 +137,6 @@ module.exports = {
         var self = this;
         config = config || {};
 
-        function collectFiltrate(filtrate) {
-            if (self.debug) console.log(filtrate);
-            if (filtrate) {
-                if (filtrate.marketId && !filtrate.error) {
-                    self.collect(filtrate.marketId, function (err, doc) {
-                        if (err) return console.error("filter error:", err, filtrate);
-                        upsertFilterDoc(filtrate, doc);
-                    });
-                } else {
-                    console.error("filter error: no marketId field", filtrate);
-                }
-            }
-        }
-
         function upsertFilterDoc(filtrate, doc) {
             var code = (filtrate.price) ? -1 : -2;
             if (self.debug) {
@@ -173,6 +154,20 @@ module.exports = {
                     success: success
                 });
             });
+        }
+
+        function collectFiltrate(filtrate) {
+            if (self.debug) console.log(filtrate);
+            if (filtrate) {
+                if (filtrate.marketId && !filtrate.error) {
+                    self.collect(filtrate.marketId, function (err, doc) {
+                        if (err) return console.error("filter error:", err, filtrate);
+                        upsertFilterDoc(filtrate, doc);
+                    });
+                } else {
+                    console.error("filter error: no marketId field", filtrate);
+                }
+            }
         }
 
         this.connect(config, function (err) {
