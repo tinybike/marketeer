@@ -17,9 +17,7 @@ var DEBUG = false;
 var TIMEOUT = 60000;
 
 var config = {
-    // ethereum: "https://eth3.augur.net",
-    ethereum: "http://127.0.0.1:8545",
-    ipcpath: "/home/jack/.ethereum-2/testnet/geth.ipc",
+    ethereum: "https://eth3.augur.net",
     mongodb: "mongodb://localhost:27017/marketeer?poolSize=5&noDelay=true&connectTimeoutMS=0&socketTimeoutMS=0",
     limit: 30,
     interval: 30000,
@@ -188,16 +186,24 @@ describe("watch", function () {
         });
         if (config.filtering) {
             setTimeout(function () {
-                mark.augur.buyShares({
+                mark.augur.trade({
                     branchId: branch,
                     marketId: marketId,
                     outcome: outcome,
                     amount: amount,
-                    onSent: function (r) {
+                    onCommitTradeSent: function (r) {
                         assert.property(r, "txHash");
                         assert.property(r, "callReturn");
                     },
-                    onSuccess: function (r) {
+                    onCommitTradeSuccess: function (r) {
+                        assert.property(r, "txHash");
+                        assert.property(r, "callReturn");
+                    },
+                    onTradeSent: function (r) {
+                        assert.property(r, "txHash");
+                        assert.property(r, "callReturn");
+                    },
+                    onTradeSuccess: function (r) {
                         assert.property(r, "txHash");
                         assert.property(r, "callReturn");
                         assert.property(r, "blockHash");
@@ -211,7 +217,8 @@ describe("watch", function () {
                         ));
                         assert.strictEqual(abi.bignum(r.value).toNumber(), 0);
                     },
-                    onFailed: done
+                    onCommitTradeFailed: done,
+                    onTradeFailed: done
                 });
                 var description = Math.random().toString(36).substring(4);
                 mark.augur.createEvent({
