@@ -12,7 +12,6 @@ var crypto = require("crypto");
 var abi = require("augur-abi");
 var assert = require("chai").assert;
 var mark = require("../");
-var util = require('util');
 
 var DEBUG = false;
 var TIMEOUT = 60000;
@@ -20,7 +19,7 @@ var TIMEOUT = 60000;
 var config = {
     ethereum: "https://eth3.augur.net",
     leveldb: "./testdb",
-    limit: 30,
+    limit: 5,
     interval: 30000,
     scan: true,
     filtering: !process.env.CONTINUOUS_INTEGRATION
@@ -39,11 +38,10 @@ describe("select", function () {
                 assert.isTrue(result);
                 mark.select(doc._id, function (err, result) {
                     assert.isNull(err);
-                    console.log("result:", util.inspect(doc, false, null));
-                    //console.log("result:", util.inspect(result, false, null));
                     assert.deepEqual(result, doc);
-                    mark.remove(doc._id, function (err) {
-                        assert.isNull(err);
+                    mark.remove("4", function (err) {
+                        console.log("Error:", err);
+                        assert.isUndefined(err);
                         mark.disconnect();
                         done();
                     });
@@ -54,7 +52,6 @@ describe("select", function () {
 
 });
 
-/*
 describe("upsert", function () {
 
     it("insert and update document", function (done) {
@@ -70,7 +67,7 @@ describe("upsert", function () {
                     assert.isNull(err);
                     assert.deepEqual(result, doc);
                     mark.remove(doc._id, function (err) {
-                        assert.isNull(err);
+                        assert.isUndefined(err);
                         doc.data = "goodbye world";
                         mark.upsert(doc, function (err,result) {
                             assert.isNull(err);
@@ -79,7 +76,7 @@ describe("upsert", function () {
                                 assert.isNull(err);
                                 assert.deepEqual(result, doc);
                                 mark.remove(doc._id, function (err) {
-                                    assert.isNull(err);
+                                    assert.isUndefined(err);
                                     mark.disconnect();
                                     done();
                                 });
@@ -92,8 +89,7 @@ describe("upsert", function () {
     });
 
 });
-*/
-/*
+
 describe("scan", function () {
     if (config.filtering) config.ethereum = "http://127.0.0.1:8545";
 
@@ -124,6 +120,7 @@ describe("scan", function () {
 
 });
 
+/*
 describe("watch", function () {
     if (config.filtering) config.ethereum = "http://127.0.0.1:8545";
 

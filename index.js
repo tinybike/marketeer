@@ -58,7 +58,7 @@ module.exports = {
         if (!this.db) return callback("db not found");
         if (!id) return callback("no market specified");
         callback = callback || function (e, r) { console.log(e, r); };
-        this.db.get(id, function (err, value) {
+        this.db.get(id, {valueEncoding: 'json'}, function (err, value) {
             if (err) return callback(err);
             callback(null, value);
         });
@@ -67,15 +67,13 @@ module.exports = {
     upsert: function (doc, callback) {
         if (!this.db) return callback("db not found");
         callback = callback || noop;
-        console.log("Upserting: ", doc._id);
-        this.db.put(doc._id, doc, function (err) {
+        this.db.put(doc._id, doc, {valueEncoding: 'json'}, function (err) {
             if (err) return callback(err);
             callback(null, true);
         });
     },
 
     scan: function (config, callback) {
-        console.log("Starting scan");
         var self = this;
         config = config || {};
         callback = callback || noop;
