@@ -25,7 +25,6 @@ module.exports = {
         var self = this;
         if (config.leveldb) {
             levelup(config.leveldb, function (err, db) {
-            //MongoClient.connect(config.leveldb, function (err, db) {
                 if (err) return callback(err);
                 self.db = db;
                 if (callback) {
@@ -57,7 +56,6 @@ module.exports = {
     // select market using market ID
     select: function (id, callback) {
         if (!this.db) return callback("db not found");
-        console.log(id);
         if (!id) return callback("no market specified");
         callback = callback || function (e, r) { console.log(e, r); };
         this.db.get(id, function (err, value) {
@@ -69,6 +67,7 @@ module.exports = {
     upsert: function (doc, callback) {
         if (!this.db) return callback("db not found");
         callback = callback || noop;
+        console.log("Upserting: ", doc._id);
         this.db.put(doc._id, doc, function (err) {
             if (err) return callback(err);
             callback(null, true);
@@ -76,6 +75,7 @@ module.exports = {
     },
 
     scan: function (config, callback) {
+        console.log("Starting scan");
         var self = this;
         config = config || {};
         callback = callback || noop;
@@ -95,6 +95,7 @@ module.exports = {
                 }
                 var markets = {};
                 async.forEachOfSeries(range, function (offset, index, next) {
+                    console.log("Index:", index);
                     var numMarketsToLoad = (index === 0) ? numMarkets - range[index] : marketsPerPage;
                     self.augur.getMarketsInfo({
                         branch: branchId,
@@ -103,6 +104,7 @@ module.exports = {
                         callback: function (marketsInfo) {
                             if (!marketsInfo || marketsInfo.error) return next(marketsInfo || "getMarketsInfo");
                             async.each(marketsInfo, function (marketInfo, nextMarket) {
+
                                 self.augur.getMarketCreationBlock(marketInfo._id, function (creationBlock) {
                                     if (creationBlock && !creationBlock.error) {
                                         marketInfo.creationBlock = creationBlock;
@@ -123,7 +125,7 @@ module.exports = {
                     });
                 }, function (err) {
                     if (err) return callback(err);
-                    callback(null, numMarkets);
+                    callback(null, numMarkets, markets);
                 });
             });
         } else {
@@ -140,6 +142,8 @@ module.exports = {
         config = config || {};
 
         function upsertFilterDoc(filtrate, doc) {
+            console.log("Doc:", doc);
+            //console.log(doc);
             var code = (filtrate.price) ? -1 : -2;
             if (self.debug) {
                 console.log("Filtrate:", JSON.stringify(filtrate, null, 2));
@@ -148,6 +152,7 @@ module.exports = {
             if (!filtrate.price && filtrate.blockNumber) {
                 doc.creationBlock = parseInt(filtrate.blockNumber);
             }
+
             self.upsert(doc, function (err, success) {
                 if (err) return console.error("filter upsert error:", err, filtrate, doc);
                 if (callback) callback(null, code, {
@@ -159,6 +164,7 @@ module.exports = {
         }
 
         function collectFiltrate(filtrate) {
+            console.log("collettFiltrate:", filtrate)
             if (self.debug) console.log(filtrate);
             if (filtrate) {
                 if (filtrate.marketId && !filtrate.error) {
@@ -187,7 +193,7 @@ module.exports = {
                               cost: '-1.00000000000000008137',
                               blockNumber: '4722' }
                          */
-                        price: collectFiltrate,
+                        log_price: collectFiltrate,
                         /**
                             { marketId: "-0x65ba5a9c2db024df5cdd4db31a0343608758ebdfcd69bf4eb1810d77502b932e",
                               blockNumber: "20542" }
@@ -197,7 +203,8 @@ module.exports = {
                 }
                 (function pulse() {
                     if (config.scan) {
-                        self.scan(config, function (err, updates) {
+                        self.scan(config, function (err, updates, markets) {
+                            console.log("Markets: ", markets);
                             if (callback) {
                                 if (err) return callback(err);
                                 callback(null, updates);

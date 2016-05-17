@@ -12,6 +12,7 @@ var crypto = require("crypto");
 var abi = require("augur-abi");
 var assert = require("chai").assert;
 var mark = require("../");
+var util = require('util');
 
 var DEBUG = false;
 var TIMEOUT = 60000;
@@ -38,7 +39,8 @@ describe("select", function () {
                 assert.isTrue(result);
                 mark.select(doc._id, function (err, result) {
                     assert.isNull(err);
-                    console.log(result);
+                    console.log("result:", util.inspect(doc, false, null));
+                    //console.log("result:", util.inspect(result, false, null));
                     assert.deepEqual(result, doc);
                     mark.remove(doc._id, function (err) {
                         assert.isNull(err);
@@ -52,6 +54,7 @@ describe("select", function () {
 
 });
 
+/*
 describe("upsert", function () {
 
     it("insert and update document", function (done) {
@@ -89,7 +92,7 @@ describe("upsert", function () {
     });
 
 });
-
+*/
 /*
 describe("scan", function () {
     if (config.filtering) config.ethereum = "http://127.0.0.1:8545";
