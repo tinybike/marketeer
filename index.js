@@ -36,6 +36,7 @@ module.exports = {
                 }
             });
         }
+
     },
 
     disconnect: function () {
@@ -93,7 +94,6 @@ module.exports = {
                 }
                 var markets = {};
                 async.forEachOfSeries(range, function (offset, index, next) {
-                    console.log("Index:", index);
                     var numMarketsToLoad = (index === 0) ? numMarkets - range[index] : marketsPerPage;
                     self.augur.getMarketsInfo({
                         branch: branchId,

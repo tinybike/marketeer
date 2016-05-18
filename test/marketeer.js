@@ -12,6 +12,7 @@ var crypto = require("crypto");
 var abi = require("augur-abi");
 var assert = require("chai").assert;
 var mark = require("../");
+var leveldown = require('leveldown');
 
 var DEBUG = false;
 var TIMEOUT = 60000;
@@ -25,8 +26,19 @@ var config = {
     filtering: !process.env.CONTINUOUS_INTEGRATION
 };
 
-describe("select", function () {
+function makeDB() {
+    config.leveldb = "./testdb_" + crypto.randomBytes(4).toString("hex");
+}
 
+function removeDB() {
+    leveldown.destroy(config.leveldb, function(err) {
+        if (err) console.log("Delete DB error:", err);
+    });
+}
+
+describe("select", function () {
+    beforeEach(makeDB);
+    afterEach(removeDB);
     it("retrieve and verify document", function (done) {
         this.timeout(TIMEOUT);
         var id = abi.prefix_hex(crypto.randomBytes(32).toString("hex"));
@@ -39,7 +51,7 @@ describe("select", function () {
                 mark.select(doc._id, function (err, result) {
                     assert.isNull(err);
                     assert.deepEqual(result, doc);
-                    mark.remove("4", function (err) {
+                    mark.remove(doc._id, function (err) {
                         console.log("Error:", err);
                         assert.isUndefined(err);
                         mark.disconnect();
@@ -53,7 +65,8 @@ describe("select", function () {
 });
 
 describe("upsert", function () {
-
+    beforeEach(makeDB);
+    afterEach(removeDB);
     it("insert and update document", function (done) {
         this.timeout(TIMEOUT);
         var id = abi.prefix_hex(crypto.randomBytes(32).toString("hex"));
@@ -91,6 +104,9 @@ describe("upsert", function () {
 });
 
 describe("scan", function () {
+    beforeEach(makeDB);
+    afterEach(removeDB);
+
     if (config.filtering) config.ethereum = "http://127.0.0.1:8545";
 
     it("fetch market info from the blockchain and save to db", function (done) {
@@ -122,6 +138,9 @@ describe("scan", function () {
 
 /*
 describe("watch", function () {
+    beforeEach(makeDB);
+    afterEach(removeDB);
+    
     if (config.filtering) config.ethereum = "http://127.0.0.1:8545";
 
     var branch, markets, marketId, outcome, amount, maxNumPolls;
