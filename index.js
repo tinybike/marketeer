@@ -66,6 +66,7 @@ module.exports = {
     },
 
     upsert: function (doc, callback) {
+        //console.log(doc.description);
         if (!this.db) return callback("db not found");
         callback = callback || noop;
         this.db.put(doc._id, doc, {valueEncoding: 'json'}, function (err) {
@@ -78,6 +79,16 @@ module.exports = {
         var self = this;
         config = config || {};
         callback = callback || noop;
+
+        function upsertMarket(doc){
+            if (self.debug) {
+                //console.log("Doc:", JSON.stringify(marketInfo, null, 2));
+            }
+            self.upsert(doc, function (err, success) {
+                if (err) return console.error("scan upsert error:", err, doc);
+            });
+        }
+
         if (this.db && typeof this.db === "object") {
             var branchId = this.augur.branches.dev;
             var marketsPerPage = 15;
@@ -94,6 +105,7 @@ module.exports = {
                 }
                 var markets = {};
                 async.forEachOfSeries(range, function (offset, index, next) {
+                    console.log("Scanning:", offset);
                     var numMarketsToLoad = (index === 0) ? numMarkets - range[index] : marketsPerPage;
                     self.augur.getMarketsInfo({
                         branch: branchId,
@@ -103,7 +115,7 @@ module.exports = {
                             if (!marketsInfo || marketsInfo.error) return next(marketsInfo || "getMarketsInfo");
                             async.each(marketsInfo, function (marketInfo, nextMarket) {
 
-                                self.augur.getMarketCreationBlock(marketInfo._id, function (creationBlock) {
+                                self.augur.getCreationBlock(marketInfo._id, function (creationBlock) {
                                     if (creationBlock && !creationBlock.error) {
                                         marketInfo.creationBlock = creationBlock;
                                     }
@@ -112,6 +124,8 @@ module.exports = {
                                             marketInfo.priceHistory = priceHistory;
                                         }
                                         markets[marketInfo._id] = marketInfo;
+                                        upsertMarket(marketInfo);
+                                        //console.log(JSON.stringify(marketInfo));
                                         nextMarket();
                                     });
                                 });
@@ -123,7 +137,7 @@ module.exports = {
                     });
                 }, function (err) {
                     if (err) return callback(err);
-                    callback(null, numMarkets, markets);
+                    callback(null, numMarkets);
                 });
             });
         } else {
@@ -140,7 +154,7 @@ module.exports = {
         config = config || {};
 
         function upsertFilterDoc(filtrate, doc) {
-            console.log("Doc:", doc);
+            //console.log("Doc:", doc);
             //console.log(doc);
             var code = (filtrate.price) ? -1 : -2;
             if (self.debug) {
