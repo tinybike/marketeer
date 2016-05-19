@@ -36,6 +36,7 @@ function removeDB() {
     });
 }
 
+/*
 describe("select", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
@@ -98,6 +99,54 @@ describe("upsert", function () {
                     });
                 });
             });
+        });
+    });
+});
+*/
+/*
+function setupDB(){
+    console.log("setting up");
+    makeDB();
+    
+    
+    mark.connect(config, function (err) {
+        console.log("connectin");
+        console.log(err);
+        mark.upsert(doc1, function (err,result) {
+            mark.upsert(doc2, function (err,result) {
+                mark.upsert(doc3, function (err,result) {
+                    mark.upsert(doc4, function (err,result) {
+                        mark.disconnect();
+                     });
+                });
+            });
+        });
+    });
+}
+*/
+describe("getMarkets", function () {
+    beforeEach(makeDB);
+    afterEach(removeDB);
+    it("retrieves marekts in reverse order", function (done) {
+        this.timeout(TIMEOUT);
+        //Insert docs out of order.
+        var doc1 = {_id: "C", creationBlock: 5};
+        var doc2 = {_id: "A", creationBlock: 4};
+        var doc3 = {_id: "D", creationBlock: 6};
+        var doc4 = {_id: "B", creationBlock: 5};
+        mark.connect(config, function (err) {
+         mark.upsert(doc1, function (err,result) {
+          mark.upsert(doc2, function (err,result) {
+           mark.upsert(doc3, function (err,result) {
+            mark.upsert(doc4, function (err,result) {
+             mark.getMarkets(4, 0, function (err, markets) {
+                mark.disconnect();
+                done();
+             });
+            });
+           });
+          });
+         });   
         });
     });
 });

@@ -8,6 +8,7 @@
 var async = require("async");
 var levelup = require('levelup');
 var sublevel = require('level-sublevel')
+var offset_stream = require('offset-stream');
 
 var INTERVAL = 600000; // default update interval (10 minutes)
 var noop = function () {};
@@ -94,7 +95,6 @@ module.exports = {
     //This will write data twice - once by id, once by block# + id.
     //This allows individual market lookup, and chronological order fetches
     upsert: function (doc, callback) {
-        //console.log(doc);
         if (!this.db_ids || !this.db_blocks) return callback("db not found");
         if (!doc._id || !doc.creationBlock) return callback("_id and creationBlock not found");
 
@@ -108,8 +108,22 @@ module.exports = {
         this.db_blocks.put(block_key, doc, {valueEncoding: 'json'}, function (err) {
             if (err) return callback(err);
         });
-        
+        console.log(block_key);
         callback(null, true);
+    },
+
+
+    getMarkets: function(limit, offset, callback){
+        if (!this.db_blocks) return callback("db not found");
+        if (!offset || offset < 0) offset = 0;
+        var total = (!limit || limit < 0) ? Number.MAX_VALUE : limit + offset;
+        console.log(total);
+        this.db_blocks.createReadStream({ keys: false, values: true, reverse: false, limit: total})
+            .pipe(offset_stream(offset))
+            .on('data', function (data) {
+                console.log('value=', data)
+            });
+        callback("hi");
     },
 
     scan: function (config, callback) {
