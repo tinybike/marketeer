@@ -66,7 +66,7 @@ module.exports = {
     },
 
     upsert: function (doc, callback) {
-        //console.log(doc.description);
+        console.log(doc);
         if (!this.db) return callback("db not found");
         callback = callback || noop;
         this.db.put(doc._id, doc, {valueEncoding: 'json'}, function (err) {
@@ -114,20 +114,14 @@ module.exports = {
                         callback: function (marketsInfo) {
                             if (!marketsInfo || marketsInfo.error) return next(marketsInfo || "getMarketsInfo");
                             async.each(marketsInfo, function (marketInfo, nextMarket) {
-
-                                self.augur.getCreationBlock(marketInfo._id, function (creationBlock) {
-                                    if (creationBlock && !creationBlock.error) {
-                                        marketInfo.creationBlock = creationBlock;
+                                self.augur.getMarketPriceHistory(marketInfo._id, {fromBlock: marketInfo.creationBlock || "0x1"}, function (priceHistory) {
+                                    if (priceHistory && !priceHistory.error) {
+                                        marketInfo.priceHistory = priceHistory;
                                     }
-                                    self.augur.getMarketPriceHistory(marketInfo._id, {fromBlock: marketInfo.creationBlock || "0x1"}, function (priceHistory) {
-                                        if (priceHistory && !priceHistory.error) {
-                                            marketInfo.priceHistory = priceHistory;
-                                        }
-                                        markets[marketInfo._id] = marketInfo;
-                                        upsertMarket(marketInfo);
-                                        //console.log(JSON.stringify(marketInfo));
-                                        nextMarket();
-                                    });
+                                    markets[marketInfo._id] = marketInfo;
+                                    upsertMarket(marketInfo);
+                                    //console.log(JSON.stringify(marketInfo));
+                                    nextMarket();
                                 });
                             }, function (err) {
                                 if (err) return next(err);
