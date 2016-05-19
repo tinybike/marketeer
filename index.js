@@ -7,6 +7,7 @@
 
 var async = require("async");
 var levelup = require('levelup');
+var sublevel = require('level-sublevel')
 
 var INTERVAL = 600000; // default update interval (10 minutes)
 var noop = function () {};
@@ -16,6 +17,8 @@ module.exports = {
     debug: false,
 
     db: null,
+    db_blocks: null,
+    db_ids: null,
 
     augur: require("augur.js"),
 
@@ -26,7 +29,9 @@ module.exports = {
         if (config.leveldb) {
             levelup(config.leveldb, function (err, db) {
                 if (err) return callback(err);
-                self.db = db;
+                self.db = sublevel(db);
+                self.db_blocks = self.db.sublevel('blocks');
+                self.db_ids = self.db.sublevel('ids');
                 if (callback) {
                     self.augur.connect(config.ethereum, config.ipcpath, function () {
                         callback(null);
@@ -40,39 +45,71 @@ module.exports = {
     },
 
     disconnect: function () {
-        if (this.db && typeof this.db === "object") {
+        if (this.db && typeof this.db === "object"
+            && this.db_ids && typeof this.db_ids === "object"
+            && this.db_blocks && typeof this.db_blocks === "object") {
             this.db.close();
             this.db = null;
+            this.db_ids = null;
+            this.db_blocks = null;
         }
     },
 
-    remove: function (id, callback) {
-        if (!this.db) return callback("db not found");
+
+    removeHelper: function (id, callback, db) {
+        if (!db) return callback("db not found");
         callback = callback || noop;
-        this.db.del(id, function (err) {
+        db.del(id, function (err) {
             return callback(err);
         });
     },
 
-    // select market using market ID
-    select: function (id, callback) {
-        if (!this.db) return callback("db not found");
+    remove: function (id, callback) {
+        this.removeHelper(id, callback, this.db_ids);
+    },
+
+    removeByBlock: function (id, callback) {
+        this.removeHelper(id, callback, this.db_blocks);
+    },
+
+    selectHelper: function (id, callback, db){
+        if (!db) return callback("db not found");
         if (!id) return callback("no market specified");
         callback = callback || function (e, r) { console.log(e, r); };
-        this.db.get(id, {valueEncoding: 'json'}, function (err, value) {
+        db.get(id, {valueEncoding: 'json'}, function (err, value) {
             if (err) return callback(err);
             callback(null, value);
         });
     },
 
+    // select market using market ID
+    select: function (id, callback) {
+        return this.selectHelper(id, callback, this.db_ids);
+    },
+
+    selectByBlock: function (id, callback) {
+        return this.selectHelper(id, callback, this.db_blocks);
+    },
+
+    //This will write data twice - once by id, once by block# + id.
+    //This allows individual market lookup, and chronological order fetches
     upsert: function (doc, callback) {
-        console.log(doc);
-        if (!this.db) return callback("db not found");
+        //console.log(doc);
+        if (!this.db_ids || !this.db_blocks) return callback("db not found");
+        if (!doc._id || !doc.creationBlock) return callback("_id and creationBlock not found");
+
         callback = callback || noop;
-        this.db.put(doc._id, doc, {valueEncoding: 'json'}, function (err) {
+
+        this.db_ids.put(doc._id, doc, {valueEncoding: 'json'}, function (err) {
             if (err) return callback(err);
-            callback(null, true);
         });
+
+        var block_key = doc.creationBlock + "_" + doc._id;
+        this.db_blocks.put(block_key, doc, {valueEncoding: 'json'}, function (err) {
+            if (err) return callback(err);
+        });
+        
+        callback(null, true);
     },
 
     scan: function (config, callback) {

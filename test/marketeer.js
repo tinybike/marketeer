@@ -40,28 +40,25 @@ describe("select", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
     it("retrieve and verify document", function (done) {
+
         this.timeout(TIMEOUT);
         var id = abi.prefix_hex(crypto.randomBytes(32).toString("hex"));
-        var doc = {_id: id, data: "booyah"};
+        var doc = {_id: id, creationBlock: 4, data: "booyah"};
         mark.connect(config, function (err) {
             assert.isNull(err);
             mark.upsert(doc, function (err, result) {
+                //console.log("test123");
                 assert.isNull(err);
                 assert.isTrue(result);
                 mark.select(doc._id, function (err, result) {
                     assert.isNull(err);
                     assert.deepEqual(result, doc);
-                    mark.remove(doc._id, function (err) {
-                        console.log("Error:", err);
-                        assert.isUndefined(err);
-                        mark.disconnect();
-                        done();
-                    });
+                    mark.disconnect();
+                    done();
                 });
             });
         });
     });
-
 });
 
 describe("upsert", function () {
@@ -70,7 +67,7 @@ describe("upsert", function () {
     it("insert and update document", function (done) {
         this.timeout(TIMEOUT);
         var id = abi.prefix_hex(crypto.randomBytes(32).toString("hex"));
-        var doc = {_id: id, data: "hello world"};
+        var doc = {_id: id, creationBlock: 4, data: "hello world"};
         mark.connect(config, function (err) {
             assert.isNull(err);
             mark.upsert(doc, function (err, result) {
@@ -79,8 +76,10 @@ describe("upsert", function () {
                 mark.select(doc._id, function (err, result) {
                     assert.isNull(err);
                     assert.deepEqual(result, doc);
-                    mark.remove(doc._id, function (err) {
-                        assert.isUndefined(err);
+                    var block_key = doc.creationBlock + "_" + doc._id;
+                    mark.selectByBlock(block_key, function (err, result) {
+                        assert.isNull(err);
+                        assert.deepEqual(result, doc);
                         doc.data = "goodbye world";
                         mark.upsert(doc, function (err,result) {
                             assert.isNull(err);
@@ -88,8 +87,9 @@ describe("upsert", function () {
                             mark.select(doc._id, function (err, result) {
                                 assert.isNull(err);
                                 assert.deepEqual(result, doc);
-                                mark.remove(doc._id, function (err) {
-                                    assert.isUndefined(err);
+                                mark.selectByBlock(block_key, function (err, result) {
+                                    assert.isNull(err);
+                                    assert.deepEqual(result, doc);
                                     mark.disconnect();
                                     done();
                                 });
@@ -100,9 +100,8 @@ describe("upsert", function () {
             });
         });
     });
-
 });
-
+/*
 describe("scan", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
@@ -135,12 +134,12 @@ describe("scan", function () {
     });
 
 });
-
+*/
 /*
 describe("watch", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
-    
+
     if (config.filtering) config.ethereum = "http://127.0.0.1:8545";
 
     var branch, markets, marketId, outcome, amount, maxNumPolls;
