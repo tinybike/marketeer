@@ -31,12 +31,14 @@ function makeDB() {
 }
 
 function removeDB() {
-    leveldown.destroy(config.leveldb, function(err) {
-        if (err) console.log("Delete DB error:", err);
+    mark.disconnect( function () {
+        leveldown.destroy(config.leveldb, function(err) {
+            if (err) console.log("Delete DB error:", err);
+        });
     });
 }
 
-/*
+
 describe("select", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
@@ -54,7 +56,6 @@ describe("select", function () {
                 mark.select(doc._id, function (err, result) {
                     assert.isNull(err);
                     assert.deepEqual(result, doc);
-                    mark.disconnect();
                     done();
                 });
             });
@@ -91,7 +92,6 @@ describe("upsert", function () {
                                 mark.selectByBlock(block_key, function (err, result) {
                                     assert.isNull(err);
                                     assert.deepEqual(result, doc);
-                                    mark.disconnect();
                                     done();
                                 });
                             });
@@ -102,28 +102,8 @@ describe("upsert", function () {
         });
     });
 });
-*/
-/*
-function setupDB(){
-    console.log("setting up");
-    makeDB();
-    
-    
-    mark.connect(config, function (err) {
-        console.log("connectin");
-        console.log(err);
-        mark.upsert(doc1, function (err,result) {
-            mark.upsert(doc2, function (err,result) {
-                mark.upsert(doc3, function (err,result) {
-                    mark.upsert(doc4, function (err,result) {
-                        mark.disconnect();
-                     });
-                });
-            });
-        });
-    });
-}
-*/
+
+
 describe("getMarkets", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
@@ -140,7 +120,10 @@ describe("getMarkets", function () {
            mark.upsert(doc3, function (err,result) {
             mark.upsert(doc4, function (err,result) {
              mark.getMarkets(4, 0, function (err, markets) {
-                mark.disconnect();
+                assert.deepEqual(markets[0], doc3);
+                assert.deepEqual(markets[1], doc1);
+                assert.deepEqual(markets[2], doc4);
+                assert.deepEqual(markets[3], doc2);
                 done();
              });
             });
@@ -150,7 +133,7 @@ describe("getMarkets", function () {
         });
     });
 });
-/*
+
 describe("scan", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
@@ -164,7 +147,6 @@ describe("scan", function () {
             mark.scan(config, function (err, updates) {
                 assert.isNull(err);
                 assert.strictEqual(updates, config.limit);
-                mark.disconnect();
                 done();
             });
         });
@@ -175,15 +157,12 @@ describe("scan", function () {
         mark.scan(config, function (err, updates) {
             assert.isNull(err);
             assert.strictEqual(updates, config.limit);
-            mark.disconnect();
-            assert.isNull(mark.watcher);
-            assert.isNull(mark.db);
             done();
         });
     });
 
 });
-*/
+
 /*
 describe("watch", function () {
     beforeEach(makeDB);

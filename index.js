@@ -45,7 +45,9 @@ module.exports = {
 
     },
 
-    disconnect: function () {
+    disconnect: function (callback) {
+        callback = callback || function (e, r) { console.log(e, r); };
+        
         if (this.db && typeof this.db === "object"
             && this.db_ids && typeof this.db_ids === "object"
             && this.db_blocks && typeof this.db_blocks === "object") {
@@ -54,6 +56,7 @@ module.exports = {
             this.db_ids = null;
             this.db_blocks = null;
         }
+        callback();
     },
 
 
@@ -108,7 +111,6 @@ module.exports = {
         this.db_blocks.put(block_key, doc, {valueEncoding: 'json'}, function (err) {
             if (err) return callback(err);
         });
-        console.log(block_key);
         callback(null, true);
     },
 
@@ -117,13 +119,14 @@ module.exports = {
         if (!this.db_blocks) return callback("db not found");
         if (!offset || offset < 0) offset = 0;
         var total = (!limit || limit < 0) ? Number.MAX_VALUE : limit + offset;
-        console.log(total);
-        this.db_blocks.createReadStream({ keys: false, values: true, reverse: false, limit: total})
+        var markets = [];
+        this.db_blocks.createReadStream({ keys: false, values: true, reverse: true, limit: total, valueEncoding: 'json'})
             .pipe(offset_stream(offset))
             .on('data', function (data) {
-                console.log('value=', data)
+                markets.push(data);
+            }).on('finish', function (data){
+                callback(null, markets);
             });
-        callback("hi");
     },
 
     scan: function (config, callback) {
