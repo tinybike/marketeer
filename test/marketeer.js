@@ -132,6 +132,31 @@ describe("getMarkets", function () {
          });   
         });
     });
+
+    it("retrieves respects limit and offset", function (done) {
+        this.timeout(TIMEOUT);
+        //Insert docs out of order.
+        var doc1 = {_id: "C", creationBlock: 5};
+        var doc2 = {_id: "A", creationBlock: 4};
+        var doc3 = {_id: "D", creationBlock: 6};
+        var doc4 = {_id: "B", creationBlock: 5};
+        mark.connect(config, function (err) {
+         mark.upsert(doc1, function (err,result) {
+          mark.upsert(doc2, function (err,result) {
+           mark.upsert(doc3, function (err,result) {
+            mark.upsert(doc4, function (err,result) {
+             mark.getMarkets(2, 1, function (err, markets) {
+                assert.strictEqual(markets.length, 2);
+                assert.deepEqual(markets[0], doc1);
+                assert.deepEqual(markets[1], doc4);
+                done();
+             });
+            });
+           });
+          });
+         });   
+        });
+    });
 });
 
 describe("scan", function () {
