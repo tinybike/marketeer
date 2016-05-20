@@ -19,12 +19,14 @@
   "homepage": "https://github.com/AugurProject/marketeer#readme",
   "dependencies": {
     "async": "^1.4.2",
-    "augur.js": "1.0.3",
+    "augur.js": "1.0.5",
     "chalk": "^1.1.1",
     "levelup": "^1.3.1",
     "leveldown" : "^1.4.6",
     "level-sublevel" : "^6.5.4",
-    "offset-stream" : "^1.0.2"
+    "offset-stream" : "^1.0.2",
+    "posix-getopt": "^1.2.0",
+    "httpdispatcher": "^1.0.0"
   },
   "devDependencies": {
     "augur-abi": "^0.2.6",
