@@ -46,7 +46,7 @@ describe("select", function () {
 
         this.timeout(TIMEOUT);
         var id = abi.prefix_hex(crypto.randomBytes(32).toString("hex"));
-        var doc = {_id: id, creationBlock: 4, data: "booyah"};
+        var doc = {_id: id, creationTime: 4, data: "booyah"};
         mark.connect(config, function (err) {
             assert.isNull(err);
             mark.upsert(doc, function (err, result) {
@@ -69,7 +69,7 @@ describe("upsert", function () {
     it("insert and update document", function (done) {
         this.timeout(TIMEOUT);
         var id = abi.prefix_hex(crypto.randomBytes(32).toString("hex"));
-        var doc = {_id: id, creationBlock: 4, data: "hello world"};
+        var doc = {_id: id, creationTime: 4, data: "hello world"};
         mark.connect(config, function (err) {
             assert.isNull(err);
             mark.upsert(doc, function (err, result) {
@@ -78,8 +78,8 @@ describe("upsert", function () {
                 mark.select(doc._id, function (err, result) {
                     assert.isNull(err);
                     assert.deepEqual(result, doc);
-                    var block_key = doc.creationBlock + "_" + doc._id;
-                    mark.selectByBlock(block_key, function (err, result) {
+                    var order_key = doc.creationTime + "_" + doc._id;
+                    mark.selectByTime(order_key, function (err, result) {
                         assert.isNull(err);
                         assert.deepEqual(result, doc);
                         doc.data = "goodbye world";
@@ -89,7 +89,7 @@ describe("upsert", function () {
                             mark.select(doc._id, function (err, result) {
                                 assert.isNull(err);
                                 assert.deepEqual(result, doc);
-                                mark.selectByBlock(block_key, function (err, result) {
+                                mark.selectByTime(order_key, function (err, result) {
                                     assert.isNull(err);
                                     assert.deepEqual(result, doc);
                                     done();
@@ -110,10 +110,10 @@ describe("getMarkets", function () {
     it("retrieves marekts in reverse order", function (done) {
         this.timeout(TIMEOUT);
         //Insert docs out of order.
-        var doc1 = {_id: "C", creationBlock: 5};
-        var doc2 = {_id: "A", creationBlock: 4};
-        var doc3 = {_id: "D", creationBlock: 6};
-        var doc4 = {_id: "B", creationBlock: 5};
+        var doc1 = {_id: "C", creationTime: 5};
+        var doc2 = {_id: "A", creationTime: 4};
+        var doc3 = {_id: "D", creationTime: 6};
+        var doc4 = {_id: "B", creationTime: 5};
         mark.connect(config, function (err) {
          mark.upsert(doc1, function (err,result) {
           mark.upsert(doc2, function (err,result) {
@@ -136,10 +136,10 @@ describe("getMarkets", function () {
     it("retrieves respects limit and offset", function (done) {
         this.timeout(TIMEOUT);
         //Insert docs out of order.
-        var doc1 = {_id: "C", creationBlock: 5};
-        var doc2 = {_id: "A", creationBlock: 4};
-        var doc3 = {_id: "D", creationBlock: 6};
-        var doc4 = {_id: "B", creationBlock: 5};
+        var doc1 = {_id: "C", creationTime: 5};
+        var doc2 = {_id: "A", creationTime: 4};
+        var doc3 = {_id: "D", creationTime: 6};
+        var doc4 = {_id: "B", creationTime: 5};
         mark.connect(config, function (err) {
          mark.upsert(doc1, function (err,result) {
           mark.upsert(doc2, function (err,result) {

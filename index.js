@@ -18,7 +18,7 @@ module.exports = {
     debug: false,
 
     db: null,
-    db_blocks: null,
+    db_order: null,
     db_ids: null,
 
     augur: require("augur.js"),
@@ -31,7 +31,7 @@ module.exports = {
             levelup(config.leveldb, function (err, db) {
                 if (err) return callback(err);
                 self.db = sublevel(db);
-                self.db_blocks = self.db.sublevel('blocks');
+                self.db_order = self.db.sublevel('blocks');
                 self.db_ids = self.db.sublevel('ids');
                 if (callback) {
                     self.augur.connect(config.ethereum, config.ipcpath, function () {
@@ -50,11 +50,11 @@ module.exports = {
         
         if (this.db && typeof this.db === "object"
             && this.db_ids && typeof this.db_ids === "object"
-            && this.db_blocks && typeof this.db_blocks === "object") {
+            && this.db_order && typeof this.db_order === "object") {
             this.db.close();
             this.db = null;
             this.db_ids = null;
-            this.db_blocks = null;
+            this.db_order = null;
         }
         callback();
     },
@@ -73,7 +73,7 @@ module.exports = {
     },
 
     removeByBlock: function (id, callback) {
-        this.removeHelper(id, callback, this.db_blocks);
+        this.removeHelper(id, callback, this.db_order);
     },
 
     selectHelper: function (id, callback, db){
@@ -91,15 +91,15 @@ module.exports = {
         return this.selectHelper(id, callback, this.db_ids);
     },
 
-    selectByBlock: function (id, callback) {
-        return this.selectHelper(id, callback, this.db_blocks);
+    selectByTime: function (id, callback) {
+        return this.selectHelper(id, callback, this.db_order);
     },
 
     //This will write data twice - once by id, once by block# + id.
     //This allows individual market lookup, and chronological order fetches
     upsert: function (doc, callback) {
-        if (!this.db_ids || !this.db_blocks) return callback("db not found");
-        if (!doc._id || !doc.creationBlock) return callback("_id and creationBlock not found");
+        if (!this.db_ids || !this.db_order) return callback("db not found");
+        if (!doc._id || !doc.creationTime) return callback("_id and creationTime not found");
 
         callback = callback || noop;
 
@@ -107,8 +107,8 @@ module.exports = {
             if (err) return callback(err);
         });
 
-        var block_key = doc.creationBlock + "_" + doc._id;
-        this.db_blocks.put(block_key, doc, {valueEncoding: 'json'}, function (err) {
+        var order_key = doc.creationTime + "_" + doc._id;
+        this.db_order.put(order_key, doc, {valueEncoding: 'json'}, function (err) {
             if (err) return callback(err);
         });
         callback(null, true);
@@ -116,11 +116,12 @@ module.exports = {
 
 
     getMarkets: function(limit, offset, callback){
-        if (!this.db_blocks) return callback("db not found");
+        if (!this.db_order) return callback("db not found");
         if (!offset || offset < 0) offset = 0;
         var total = (!limit || limit < 0) ? Number.MAX_VALUE : limit + offset;
         var markets = [];
-        this.db_blocks.createReadStream({ keys: false, values: true, reverse: true, limit: total, valueEncoding: 'json'})
+        //TODO: allow this to populate levelDB cache? Profile.
+        this.db_order.createReadStream({ keys: false, values: true, reverse: true, limit: total, valueEncoding: 'json'})
             .pipe(offset_stream(offset))
             .on('data', function (data) {
                 markets.push(data);
