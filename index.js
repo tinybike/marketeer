@@ -118,7 +118,7 @@ module.exports = {
     getMarkets: function(limit, offset, callback){
         if (!this.db_order) return callback("db not found");
         if (!offset || offset < 0) offset = 0;
-        var total = (!limit || limit < 0) ? Number.MAX_VALUE : limit + offset;
+        var total = (!limit || limit < 0) ? null : limit + offset;
         var markets = [];
         //TODO: allow this to populate levelDB cache? Profile.
         this.db_order.createReadStream({ keys: false, values: true, reverse: true, limit: total, valueEncoding: 'json'})
