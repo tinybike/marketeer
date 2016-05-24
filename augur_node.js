@@ -24,6 +24,7 @@ function isPositiveInt(str) {
     return String(n) === str && n >= 0;
 }
 
+/*
 app.get('/getMarkets', function (req, res) {
     limit = isPositiveInt(req.query.limit) ? parseInt(req.query.limit, 10) : -1;
     offset = isPositiveInt(req.query.offset) ? parseInt(req.query.offset, 10) : 0;
@@ -32,7 +33,9 @@ app.get('/getMarkets', function (req, res) {
         res.send(JSON.stringify(markets));
     });
 });
+*/
 
+app.use('/data', express.static('data'));
 
 function runserver(protocol, port) {
     app.listen(port, function() {

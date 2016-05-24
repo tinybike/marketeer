@@ -6,9 +6,7 @@
 "use strict";
 
 var async = require("async");
-var levelup = require('levelup');
-var sublevel = require('level-sublevel')
-var offset_stream = require('offset-stream');
+var fs = require('fs')
 
 var INTERVAL = 600000; // default update interval (10 minutes)
 var noop = function () {};
@@ -17,9 +15,8 @@ module.exports = {
 
     debug: false,
 
-    db: null,
-    db_order: null,
-    db_ids: null,
+    marketData: null,
+    marketDataFile: null,
 
     augur: require("augur.js"),
 
@@ -27,107 +24,57 @@ module.exports = {
 
     connect: function (config, callback) {
         var self = this;
-        if (config.leveldb) {
-            levelup(config.leveldb, function (err, db) {
-                if (err) return callback(err);
-                self.db = sublevel(db);
-                self.db_order = self.db.sublevel('blocks');
-                self.db_ids = self.db.sublevel('ids');
-                if (callback) {
-                    self.augur.connect(config.ethereum, config.ipcpath, function () {
-                        callback(null);
-                    });
-                } else {
-                   self.augur.connect(config.ethereum, config.ipcpath);
-                }
-            });
-        }
+        callback = callback || noop;
 
+        self.augur.connect(config.ethereum, config.ipcpath, function () {
+            fs.readFile(config.db, 'utf8', function (err, data) {
+                self.marketData = err ? {} : JSON.parse(data);
+                self.marketDataFile = config.db;
+            });
+            return callback(null);
+        });
     },
 
     disconnect: function (callback) {
         callback = callback || function (e, r) { console.log(e, r); };
-        
-        if (this.db && typeof this.db === "object"
-            && this.db_ids && typeof this.db_ids === "object"
-            && this.db_order && typeof this.db_order === "object") {
-            this.db.close();
-            this.db = null;
-            this.db_ids = null;
-            this.db_order = null;
-        }
+        //TODO: write marketData to file?
         callback();
     },
 
-
-    removeHelper: function (id, callback, db) {
-        if (!db) return callback("db not found");
-        callback = callback || noop;
-        db.del(id, function (err) {
-            return callback(err);
-        });
-    },
-
     remove: function (id, callback) {
-        this.removeHelper(id, callback, this.db_ids);
-    },
-
-    removeByBlock: function (id, callback) {
-        this.removeHelper(id, callback, this.db_order);
-    },
-
-    selectHelper: function (id, callback, db){
-        if (!db) return callback("db not found");
-        if (!id) return callback("no market specified");
-        callback = callback || function (e, r) { console.log(e, r); };
-        db.get(id, {valueEncoding: 'json'}, function (err, value) {
-            if (err) return callback(err);
-            callback(null, value);
-        });
+        delete this.marketData[id];
+        callback();
     },
 
     // select market using market ID
     select: function (id, callback) {
-        return this.selectHelper(id, callback, this.db_ids);
+        var self = this;
+        if (!id) return callback("no market specified");
+        callback = callback || function (e, r) { console.log(e, r); };
+        market = self.marketData[id];
+        return callback(null, market);
     },
 
-    selectByTime: function (id, callback) {
-        return this.selectHelper(id, callback, this.db_order);
-    },
-
-    //This will write data twice - once by id, once by block# + id.
-    //This allows individual market lookup, and chronological order fetches
-    upsert: function (doc, callback) {
-        if (!this.db_ids || !this.db_order) return callback("db not found");
-        if (!doc._id || !doc.creationTime) return callback("_id and creationTime not found");
-
+    //Adds market to json. Optionally flushes to disk.
+    upsert: function (doc, flush, callback) {
+        var self = this;
+        if (!doc._id || !doc.creationTime) return callback("_id not found");
         callback = callback || noop;
-
-        this.db_ids.put(doc._id, doc, {valueEncoding: 'json'}, function (err) {
-            if (err) return callback(err);
-        });
-
-        var order_key = doc.creationTime + "_" + doc._id;
-        this.db_order.put(order_key, doc, {valueEncoding: 'json'}, function (err) {
-            if (err) return callback(err);
-        });
-        callback(null, true);
+        self.marketData[doc._id] = doc;
+        if (flush){
+            self.flush(function (err){
+                return callback(err);
+            });
+        }
+        return callback(null);
     },
 
-
-    getMarkets: function(limit, offset, callback){
-        if (!this.db_order) return callback("db not found");
-        if (!offset || offset < 0) offset = 0;
-        var total = (!limit || limit < 0) ? null : limit + offset;
-        var markets = [];
-        //TODO: allow this to populate levelDB cache? Profile.
-        this.db_order.createReadStream({ keys: false, values: true, reverse: true, limit: total, valueEncoding: 'json'})
-            .pipe(offset_stream(offset))
-            .on('data', function (data) {
-                markets.push(data);
-            }).on('finish', function (data){
-                callback(null, markets);
-            });
+    flush: function (callback){
+        var self = this;
+        fs.writeFile(self.marketDataFile, JSON.stringify(self.marketData), 'utf8', function(err) {
+            if(err) return callback(err);
+        });
+        return callback(null);
     },
 
     scan: function (config, callback) {
@@ -139,12 +86,13 @@ module.exports = {
             if (self.debug) {
                 //console.log("Doc:", JSON.stringify(marketInfo, null, 2));
             }
-            self.upsert(doc, function (err, success) {
+            self.upsert(doc, false, function (err) {
                 if (err) return console.error("scan upsert error:", err, doc);
             });
         }
 
-        if (this.db && typeof this.db === "object") {
+        //TODO: need to scan all branches?
+        if (this.marketData && typeof this.marketData === "object") {
             var branchId = this.augur.branches.dev;
             var marketsPerPage = 15;
 
@@ -186,7 +134,11 @@ module.exports = {
                     });
                 }, function (err) {
                     if (err) return callback(err);
-                    callback(null, numMarkets);
+                    //flush at the end of a scan
+                    self.flush(function (flush_err) {
+                        if (flush_err) return callback(flush_err);
+                        callback(null, numMarkets);
+                    });
                 });
             });
         } else {
@@ -214,12 +166,11 @@ module.exports = {
                 doc.creationBlock = parseInt(filtrate.blockNumber);
             }
 
-            self.upsert(doc, function (err, success) {
+            self.upsert(doc, true, function (err) {
                 if (err) return console.error("filter upsert error:", err, filtrate, doc);
                 if (callback) callback(null, code, {
                     filtrate: filtrate,
                     doc: doc,
-                    success: success
                 });
             });
         }
@@ -290,10 +241,14 @@ module.exports = {
             clearTimeout(this.watcher);
             this.watcher = null;
         }
-        if (this.db) {
-            this.db.close();
-            this.db = null;
+
+        if (this.marketData){
+            this.marketData = null;
         }
+        //if (this.db) {
+        //    this.db.close();
+        //    this.db = null;
+       // }
         return !(
             this.watcher && this.db &&
             this.augur.filters.price_filter.id &&

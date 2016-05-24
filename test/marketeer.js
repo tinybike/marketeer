@@ -12,14 +12,13 @@ var crypto = require("crypto");
 var abi = require("augur-abi");
 var assert = require("chai").assert;
 var mark = require("../");
-var leveldown = require('leveldown');
 
 var DEBUG = false;
 var TIMEOUT = 60000;
 
 var config = {
     ethereum: "https://eth3.augur.net",
-    leveldb: "./testdb",
+    db: "./testdb",
     limit: 5,
     interval: 30000,
     scan: true,
@@ -27,7 +26,7 @@ var config = {
 };
 
 function makeDB() {
-    config.leveldb = "./testdb_" + crypto.randomBytes(4).toString("hex");
+    config.db = "./testdb_" + crypto.randomBytes(4).toString("hex") + ".json";
 }
 
 function removeDB() {
