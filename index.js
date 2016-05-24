@@ -216,7 +216,6 @@ module.exports = {
                 (function pulse() {
                     if (config.scan) {
                         self.scan(config, function (err, updates, markets) {
-                            console.log("Markets: ", markets);
                             if (callback) {
                                 if (err) return callback(err);
                                 callback(null, updates);
