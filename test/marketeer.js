@@ -19,7 +19,7 @@ var TIMEOUT = 60000;
 
 var config = {
     ethereum: "https://eth3.augur.net",
-    db: "./testdb",
+    leveldb: "./testdb",
     limit: 5,
     interval: 30000,
     scan: true,
@@ -27,12 +27,16 @@ var config = {
 };
 
 function makeDB() {
-    config.leveldb = "./testdb_" + crypto.randomBytes(4).toString("hex");
+    config.leveldb = crypto.randomBytes(4).toString("hex") + "testdb";
 }
 
 function removeDB() {
-    mark.disconnect( function () {
-        leveldown.destroy(config.leveldb, function(err) {
+    console.log("remove");
+    mark.disconnect( (err) => {
+        if (err) console.log(err);
+        console.log("remove2");
+        leveldown.destroy(config.leveldb, (err) => {
+            console.log("remove3");
             if (err) console.log("Delete DB error:", err);
         });
     });
@@ -43,16 +47,13 @@ describe("select", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
     it("retrieve and verify document", function (done) {
-
         this.timeout(TIMEOUT);
         var id = abi.prefix_hex(crypto.randomBytes(32).toString("hex"));
-        var doc = {_id: id, creationTime: 4, data: "booyah"};
+        var doc = {_id: id, data: "booyah"};
         mark.connect(config, function (err) {
             assert.isNull(err);
-            mark.upsert(doc, function (err, result) {
-                //console.log("test123");
+            mark.upsert(doc, function (err) {
                 assert.isNull(err);
-                assert.isTrue(result);
                 mark.select(doc._id, function (err, result) {
                     assert.isNull(err);
                     assert.deepEqual(result, doc);
@@ -72,29 +73,18 @@ describe("upsert", function () {
         var doc = {_id: id, creationTime: 4, data: "hello world"};
         mark.connect(config, function (err) {
             assert.isNull(err);
-            mark.upsert(doc, function (err, result) {
+            mark.upsert(doc, function (err) {
                 assert.isNull(err);
-                assert.isTrue(result);
                 mark.select(doc._id, function (err, result) {
                     assert.isNull(err);
                     assert.deepEqual(result, doc);
-                    var order_key = doc.creationTime + "_" + doc._id;
-                    mark.selectByTime(order_key, function (err, result) {
+                    doc.data = "goodbye world";
+                    mark.upsert(doc, function (err) {
                         assert.isNull(err);
-                        assert.deepEqual(result, doc);
-                        doc.data = "goodbye world";
-                        mark.upsert(doc, function (err,result) {
+                        mark.select(doc._id, function (err, result) {
                             assert.isNull(err);
-                            assert.isTrue(result);
-                            mark.select(doc._id, function (err, result) {
-                                assert.isNull(err);
-                                assert.deepEqual(result, doc);
-                                mark.selectByTime(order_key, function (err, result) {
-                                    assert.isNull(err);
-                                    assert.deepEqual(result, doc);
-                                    done();
-                                });
-                            });
+                            assert.deepEqual(result, doc);
+                            done();
                         });
                     });
                 });
@@ -110,20 +100,26 @@ describe("getMarkets", function () {
     it("retrieves marekts in reverse order", function (done) {
         this.timeout(TIMEOUT);
         //Insert docs out of order.
-        var doc1 = {_id: "C", creationTime: 5};
-        var doc2 = {_id: "A", creationTime: 4};
-        var doc3 = {_id: "D", creationTime: 6};
-        var doc4 = {_id: "B", creationTime: 5};
-        mark.connect(config, function (err) {
-         mark.upsert(doc1, function (err,result) {
-          mark.upsert(doc2, function (err,result) {
-           mark.upsert(doc3, function (err,result) {
-            mark.upsert(doc4, function (err,result) {
-             mark.getMarkets(4, 0, function (err, markets) {
-                assert.deepEqual(markets[0], doc3);
-                assert.deepEqual(markets[1], doc1);
-                assert.deepEqual(markets[2], doc4);
-                assert.deepEqual(markets[3], doc2);
+        var data = {
+            "A": {_id: "A", data: 1},
+            "B": {_id: "B", data: 2},
+            "C": {_id: "C", data: 3},
+            "D": {_id: "D", data: 4}  
+        };
+
+        mark.connect(config, (err) => {
+         mark.upsert(data["A"], (err) => {
+          mark.upsert(data["B"], (err) => {
+           mark.upsert(data["C"], (err) => {
+            mark.upsert(data["D"], (err) => {
+             mark.getMarkets( (err, markets) => {
+                assert.isNull(err);
+                assert.isNotNull(markets);
+                var results = JSON.parse(markets);
+                assert.deepEqual(results["A"], data["A"]);
+                assert.deepEqual(results["B"], data["B"]);
+                assert.deepEqual(results["C"], data["C"]);
+                assert.deepEqual(results["D"], data["D"]);
                 done();
              });
             });
@@ -133,28 +129,25 @@ describe("getMarkets", function () {
         });
     });
 
-    it("retrieves respects limit and offset", function (done) {
+    it("tests persistence", function (done) {
         this.timeout(TIMEOUT);
-        //Insert docs out of order.
-        var doc1 = {_id: "C", creationTime: 5};
-        var doc2 = {_id: "A", creationTime: 4};
-        var doc3 = {_id: "D", creationTime: 6};
-        var doc4 = {_id: "B", creationTime: 5};
-        mark.connect(config, function (err) {
-         mark.upsert(doc1, function (err,result) {
-          mark.upsert(doc2, function (err,result) {
-           mark.upsert(doc3, function (err,result) {
-            mark.upsert(doc4, function (err,result) {
-             mark.getMarkets(2, 1, function (err, markets) {
-                assert.strictEqual(markets.length, 2);
-                assert.deepEqual(markets[0], doc1);
-                assert.deepEqual(markets[1], doc4);
-                done();
-             });
+        var data = {
+            "A": {_id: "A", data: 1}
+        };
+        mark.connect(config, (err) => {
+          mark.upsert(data["A"], (err) => {
+            mark.disconnect( (err) => {
+              mark.connect(config, (err) => {
+                mark.getMarkets( (err, markets) => {
+                  assert.isNull(err);
+                  assert.isNotNull(markets);
+                  var results = JSON.parse(markets);
+                  assert.deepEqual(results["A"], data["A"]);
+                  done();
+                });
+              });
             });
-           });
           });
-         });   
         });
     });
 });
@@ -167,7 +160,7 @@ describe("scan", function () {
 
     it("fetch market info from the blockchain and save to db", function (done) {
         this.timeout(TIMEOUT*100);
-        mark.connect(config, function (err) {
+        mark.connect(config, (err) => {
             assert.isNull(err);
             mark.scan(config, function (err, updates) {
                 assert.isNull(err);
@@ -177,9 +170,11 @@ describe("scan", function () {
         });
     });
 
+
     it("fetch market info from the blockchain, set up db connection, then save to db", function (done) {
         this.timeout(TIMEOUT*100);
         mark.scan(config, function (err, updates) {
+            console.log(updates);
             assert.isNull(err);
             assert.strictEqual(updates, config.limit);
             done();

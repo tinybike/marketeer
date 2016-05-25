@@ -32,14 +32,10 @@ module.exports = {
         self.augur.connect(config.ethereum, config.ipcpath, () => {
             if (config.leveldb){
                 levelup(config.leveldb, (err, db) => {
-                    console.log(err);
                     self.db = sublevel(db);
                     self.dbMarkets = self.db.sublevel('markets');
                     self.populateMarkets(self.dbMarkets, (err) => {
-                        //console.log("test2");
                         if (err) return callback(err);
-                        //console.log("err2: ", err);
-                        //console.log("data", self.marketData);
                         return callback(null);
                     });
                 });
@@ -74,6 +70,7 @@ module.exports = {
             self.db = null;
             self.dbMarkets = null;
             self.marketData = {};
+            return callback(null);
         });
     },
 
@@ -113,7 +110,7 @@ module.exports = {
     getMarkets: function(callback){
         var self = this;
         if (!self.marketData) return callback("marketData not loaded");
-        return JSON.stringify(self.marketData);
+        return callback(null, JSON.stringify(self.marketData));
     },
 
     scan: function (config, callback) {
@@ -126,12 +123,13 @@ module.exports = {
                 //console.log("Doc:", JSON.stringify(marketInfo, null, 2));
             }
             self.upsert(doc, function (err) {
-                if (err) return console.error("scan upsert error:", err, doc);
+                if (err) return console.error("scan upsert error:", err);
             });
         }
 
         //TODO: need to scan all branches?
-        if (this.marketData && typeof this.marketData === "object") {
+        if (this.db && typeof this.db === "object" && 
+            this.marketData && typeof this.marketData === "object") {
             var branchId = this.augur.branches.dev;
             var marketsPerPage = 15;
 
@@ -162,7 +160,6 @@ module.exports = {
                                     }
                                     markets[marketInfo._id] = marketInfo;
                                     upsertMarket(marketInfo);
-                                    console.log(JSON.stringify(marketInfo));
                                     nextMarket();
                                 });
                             }, (err) => {
@@ -179,7 +176,6 @@ module.exports = {
         } else {
             this.connect(config, (err) => {
                 if (err) return callback(err);
-                self.augur.connect(config.ethereum);
                 self.scan(config, callback);
             });
         }
