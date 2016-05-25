@@ -6,7 +6,9 @@
 "use strict";
 
 var async = require("async");
-var fs = require('fs')
+var levelup = require('levelup');
+var sublevel = require('level-sublevel')
+
 
 var INTERVAL = 600000; // default update interval (10 minutes)
 var noop = function () {};
@@ -15,9 +17,10 @@ module.exports = {
 
     debug: false,
 
+    db: null,
+    dbMarkets: null,
     marketData: null,
-    marketDataFile: null,
-
+    
     augur: require("augur.js"),
 
     watcher: null,
@@ -26,55 +29,91 @@ module.exports = {
         var self = this;
         callback = callback || noop;
 
-        self.augur.connect(config.ethereum, config.ipcpath, function () {
-            fs.readFile(config.db, 'utf8', function (err, data) {
-                self.marketData = err ? {} : JSON.parse(data);
-                self.marketDataFile = config.db;
-            });
+        self.augur.connect(config.ethereum, config.ipcpath, () => {
+            if (config.leveldb){
+                levelup(config.leveldb, (err, db) => {
+                    console.log(err);
+                    self.db = sublevel(db);
+                    self.dbMarkets = self.db.sublevel('markets');
+                    self.populateMarkets(self.dbMarkets, (err) => {
+                        //console.log("test2");
+                        if (err) return callback(err);
+                        //console.log("err2: ", err);
+                        //console.log("data", self.marketData);
+                        return callback(null);
+                    });
+                });
+            }
+        });
+    },
+
+    //deserialize db into memory
+    populateMarkets: function(marketDB, callback){
+        var self = this;
+        self.marketData = {};
+        if (!marketDB) return callback("db not found");
+
+        marketDB.createValueStream({valueEncoding: 'json'})
+        .on('data', (data) => {
+            self.marketData[data._id] = data;
+        }).on('end', () => {
             return callback(null);
         });
     },
 
     disconnect: function (callback) {
+        var self = this;
         callback = callback || function (e, r) { console.log(e, r); };
-        //TODO: write marketData to file?
-        callback();
+
+        if (!self.db || typeof self.db !== "object"
+             || !self.dbMarkets || typeof self.dbMarkets !== "object"){
+            return callback("db not found");
+        }
+        self.db.close( (err) => {
+            if (err) return callback(err);
+            self.db = null;
+            self.dbMarkets = null;
+            self.marketData = {};
+        });
     },
 
     remove: function (id, callback) {
-        delete this.marketData[id];
-        callback();
+        var self = this;
+        if (!self.dbMarkets) return callback("db not found");
+        if (!self.marketData) return callback("marketData not loaded");
+        
+        self.dbMarkets.del(id, (err) => {
+            if (err) return callback(err);
+            delete self.marketData[id];
+            return callback(null);
+        });
     },
 
     // select market using market ID
     select: function (id, callback) {
         var self = this;
         if (!id) return callback("no market specified");
-        callback = callback || function (e, r) { console.log(e, r); };
-        market = self.marketData[id];
-        return callback(null, market);
+        return callback(null, self.marketData[id]);
     },
 
-    //Adds market to json. Optionally flushes to disk.
-    upsert: function (doc, flush, callback) {
+    //Updates market data
+    upsert: function (doc, callback) {
         var self = this;
-        if (!doc._id || !doc.creationTime) return callback("_id not found");
+        if (!self.db || !self.dbMarkets) return callback("db not found");
+        if (!doc._id) return callback("_id not found");
+
         callback = callback || noop;
-        self.marketData[doc._id] = doc;
-        if (flush){
-            self.flush(function (err){
-                return callback(err);
-            });
-        }
-        return callback(null);
+        self.dbMarkets.put(doc._id, doc, {valueEncoding: 'json'}, (err) => {
+            if (err) return callback(err);
+            self.marketData[doc._id] = doc;
+            return callback(null);
+        });
     },
 
-    flush: function (callback){
+    getMarkets: function(callback){
         var self = this;
-        fs.writeFile(self.marketDataFile, JSON.stringify(self.marketData), 'utf8', function(err) {
-            if(err) return callback(err);
-        });
-        return callback(null);
+        if (!self.marketData) return callback("marketData not loaded");
+        return JSON.stringify(self.marketData);
     },
 
     scan: function (config, callback) {
@@ -86,7 +125,7 @@ module.exports = {
             if (self.debug) {
                 //console.log("Doc:", JSON.stringify(marketInfo, null, 2));
             }
-            self.upsert(doc, false, function (err) {
+            self.upsert(doc, function (err) {
                 if (err) return console.error("scan upsert error:", err, doc);
             });
         }
@@ -97,7 +136,7 @@ module.exports = {
             var marketsPerPage = 15;
 
             // request data from geth via JSON RPC
-            self.augur.getNumMarketsBranch(branchId, function (numMarkets) {
+            self.augur.getNumMarketsBranch(branchId, (numMarkets) => {
                 if (!numMarkets || isNaN(numMarkets)) return callback("no markets found");
                 numMarkets = parseInt(numMarkets);
                 numMarkets = (config.limit) ? Math.min(config.limit, numMarkets) : numMarkets;
@@ -107,7 +146,7 @@ module.exports = {
                     range[numPages - i - 1] = i*marketsPerPage;
                 }
                 var markets = {};
-                async.forEachOfSeries(range, function (offset, index, next) {
+                async.forEachOfSeries(range, (offset, index, next) => {
                     console.log("Scanning:", offset);
                     var numMarketsToLoad = (index === 0) ? numMarkets - range[index] : marketsPerPage;
                     self.augur.getMarketsInfo({
@@ -123,26 +162,22 @@ module.exports = {
                                     }
                                     markets[marketInfo._id] = marketInfo;
                                     upsertMarket(marketInfo);
-                                    //console.log(JSON.stringify(marketInfo));
+                                    console.log(JSON.stringify(marketInfo));
                                     nextMarket();
                                 });
-                            }, function (err) {
+                            }, (err) => {
                                 if (err) return next(err);
                                 next();
                             });
                         }
                     });
-                }, function (err) {
+                }, (err) => {
                     if (err) return callback(err);
-                    //flush at the end of a scan
-                    self.flush(function (flush_err) {
-                        if (flush_err) return callback(flush_err);
-                        callback(null, numMarkets);
-                    });
+                    callback(null, numMarkets);
                 });
             });
         } else {
-            this.connect(config, function (err) {
+            this.connect(config, (err) => {
                 if (err) return callback(err);
                 self.augur.connect(config.ethereum);
                 self.scan(config, callback);
@@ -166,7 +201,7 @@ module.exports = {
                 doc.creationBlock = parseInt(filtrate.blockNumber);
             }
 
-            self.upsert(doc, true, function (err) {
+            self.upsert(doc, (err) => {
                 if (err) return console.error("filter upsert error:", err, filtrate, doc);
                 if (callback) callback(null, code, {
                     filtrate: filtrate,
@@ -180,7 +215,7 @@ module.exports = {
             if (self.debug) console.log(filtrate);
             if (filtrate) {
                 if (filtrate.marketId && !filtrate.error) {
-                    self.collect(filtrate.marketId, function (err, doc) {
+                    self.collect(filtrate.marketId, (err, doc) => {
                         if (err) return console.error("filter error:", err, filtrate);
                         upsertFilterDoc(filtrate, doc);
                     });
@@ -190,7 +225,7 @@ module.exports = {
             }
         }
 
-        this.connect(config, function (err) {
+        this.connect(config, (err) => {
             if (err) {
                 if (callback) callback(err);
             } else {
@@ -215,7 +250,7 @@ module.exports = {
                 }
                 (function pulse() {
                     if (config.scan) {
-                        self.scan(config, function (err, updates, markets) {
+                        self.scan(config, (err, updates, markets) => {
                             if (callback) {
                                 if (err) return callback(err);
                                 callback(null, updates);
@@ -231,28 +266,26 @@ module.exports = {
     },
 
     unwatch: function () {
-        if (this.augur.filters.price_filter.id ||
-            this.augur.filters.contracts_filter.id)
+        var self = this;
+
+        if (self.augur.filters.price_filter.id ||
+            self.augur.filters.contracts_filter.id)
         {
-            this.augur.filters.ignore(true);
+            self.augur.filters.ignore(true);
         }
-        if (this.watcher) {
+        if (self.watcher) {
             clearTimeout(this.watcher);
-            this.watcher = null;
+            self.watcher = null;
         }
 
-        if (this.marketData){
-            this.marketData = null;
-        }
-        //if (this.db) {
-        //    this.db.close();
-        //    this.db = null;
-       // }
-        return !(
-            this.watcher && this.db &&
-            this.augur.filters.price_filter.id &&
-            this.augur.filters.price_filter.heartbeat
-        );
+        this.disconnect( (err) => {
+            if (err) return 0;
+            return !(
+                this.watcher && this.db &&
+                this.augur.filters.price_filter.id &&
+                this.augur.filters.price_filter.heartbeat
+            );
+        });
     }
 
 };

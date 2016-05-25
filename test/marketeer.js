@@ -11,6 +11,7 @@ var chalk = require("chalk");
 var crypto = require("crypto");
 var abi = require("augur-abi");
 var assert = require("chai").assert;
+var leveldown = require('leveldown');
 var mark = require("../");
 
 var DEBUG = false;
@@ -26,7 +27,7 @@ var config = {
 };
 
 function makeDB() {
-    config.db = "./testdb_" + crypto.randomBytes(4).toString("hex") + ".json";
+    config.leveldb = "./testdb_" + crypto.randomBytes(4).toString("hex");
 }
 
 function removeDB() {
