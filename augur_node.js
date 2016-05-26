@@ -6,7 +6,7 @@ var mark = require("./");
 
 var config = {
     ethereum: "http://localhost:8545",
-    leveldb: "./augurmarketdb",
+    leveldb: "./data/marketsdb",
     limit: null,
     filtering: true,
     interval: null,
@@ -24,25 +24,19 @@ function isPositiveInt(str) {
     return String(n) === str && n >= 0;
 }
 
-/*
 app.get('/getMarkets', function (req, res) {
-    limit = isPositiveInt(req.query.limit) ? parseInt(req.query.limit, 10) : -1;
-    offset = isPositiveInt(req.query.offset) ? parseInt(req.query.offset, 10) : 0;
-    mark.getMarkets(limit, offset, function (err, markets){
+    mark.getMarkets(function (err, markets){
         if (err) console.log(err); //TODO: send error
-        res.send(JSON.stringify(markets));
+        res.send(markets);
     });
 });
-*/
 
-app.use('/data', express.static('data'));
 
 function runserver(protocol, port) {
     app.listen(port, function() {
         log("Listening on port " + port);
     });
 }
-
 
 (function init(args) {
     var opt, port, protocol, parser;
@@ -57,11 +51,10 @@ function runserver(protocol, port) {
                 break;
         }
     }
-
-    mark.connect(config, function (err){
-        if (err){
-            log(err);
-        }
+    
+    mark.scan(config, function (err, numUpdates) {
+        if (err) throw err;
+        log(numUpdates + " markets have been updated!");
     });
 
     runserver(protocol || "http", port || process.env.PORT || 8546);
