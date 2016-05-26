@@ -26,22 +26,21 @@ var config = {
     filtering: !process.env.CONTINUOUS_INTEGRATION
 };
 
-function makeDB() {
+var makeDB = function (done) {
     config.leveldb = crypto.randomBytes(4).toString("hex") + "testdb";
+    done();
 }
 
-function removeDB() {
-    console.log("remove");
+
+var removeDB = function (done){
     mark.disconnect( (err) => {
-        if (err) console.log(err);
-        console.log("remove2");
+        if (err) done(err);
         leveldown.destroy(config.leveldb, (err) => {
-            console.log("remove3");
             if (err) console.log("Delete DB error:", err);
+            done();
         });
-    });
+    });   
 }
-
 
 describe("select", function () {
     beforeEach(makeDB);
@@ -174,7 +173,6 @@ describe("scan", function () {
     it("fetch market info from the blockchain, set up db connection, then save to db", function (done) {
         this.timeout(TIMEOUT*100);
         mark.scan(config, function (err, updates) {
-            console.log(updates);
             assert.isNull(err);
             assert.strictEqual(updates, config.limit);
             done();
