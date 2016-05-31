@@ -29,6 +29,8 @@ module.exports = {
         var self = this;
         callback = callback || noop;
 
+        self.augur.rpc.wsUrl=null;
+        self.augur.rpc.nodes.hosted = [];
         self.augur.connect(config.ethereum, config.ipcpath, () => {
             if (config.leveldb){
                 levelup(config.leveldb, (err, db) => {
