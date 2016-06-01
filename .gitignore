@@ -7,3 +7,4 @@ coverage
 ipc
 ipfs
 /data/*db
+scratch
