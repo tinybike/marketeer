@@ -29,9 +29,7 @@ module.exports = {
         var self = this;
         callback = callback || noop;
 
-        self.augur.rpc.wsUrl=null;
-        self.augur.rpc.nodes.hosted = [];
-        self.augur.connect(config.ethereum, config.ipcpath, () => {
+        self.augur.connect(config, () => {
             if (config.leveldb){
                 levelup(config.leveldb, (err, db) => {
                     self.db = sublevel(db);
@@ -156,14 +154,8 @@ module.exports = {
                         callback: function (marketsInfo) {
                             if (!marketsInfo || marketsInfo.error) return next(marketsInfo || "getMarketsInfo");
                             async.each(marketsInfo, function (marketInfo, nextMarket) {
-                                self.augur.getMarketPriceHistory(marketInfo._id, {fromBlock: marketInfo.creationBlock || "0x1"}, function (priceHistory) {
-                                    if (priceHistory && !priceHistory.error) {
-                                        marketInfo.priceHistory = priceHistory;
-                                    }
-                                    markets[marketInfo._id] = marketInfo;
-                                    upsertMarket(marketInfo);
-                                    nextMarket();
-                                });
+                                upsertMarket(marketInfo);
+                                nextMarket();
                             }, (err) => {
                                 if (err) return next(err);
                                 next();

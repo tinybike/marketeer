@@ -52,10 +52,12 @@ function runserver(protocol, port) {
         }
     }
     
+    //to be safe, rescan on every restart. Markets might have updated
+    //when node was down.
     mark.scan(config, function (err, numUpdates) {
         if (err) throw err;
         log(numUpdates + " markets have been updated!");
+        runserver(protocol || "http", port || process.env.PORT || 8547);
     });
 
-    runserver(protocol || "http", port || process.env.PORT || 8546);
 })(process.argv);
