@@ -6,3 +6,5 @@ node_modules
 coverage
 ipc
 ipfs
+/data/*db
+scratch

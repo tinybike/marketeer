@@ -33,7 +33,7 @@ if (!process.env.CONTINUOUS_INTEGRATION) {
         // datadir = path.join(process.env.HOME, ".ethereum-augur");
         config = {
             ethereum: "http://127.0.0.1:8545",
-            mongodb: "mongodb://localhost:27017/marketeer?poolSize=5&noDelay=true&connectTimeoutMS=0&socketTimeoutMS=0",
+            leveldb: "./testdb",
             limit: 2,
             interval: 30000,
             scan: true,
