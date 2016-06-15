@@ -11,6 +11,7 @@ var chalk = require("chalk");
 var crypto = require("crypto");
 var abi = require("augur-abi");
 var assert = require("chai").assert;
+var leveldown = require('leveldown');
 var mark = require("../");
 
 var DEBUG = false;
@@ -18,117 +19,173 @@ var TIMEOUT = 60000;
 
 var config = {
     ethereum: "https://eth3.augur.net",
-    mongodb: "mongodb://localhost:27017/marketeer?poolSize=5&noDelay=true&connectTimeoutMS=0&socketTimeoutMS=0",
-    limit: 30,
+    leveldb: "./testdb",
+    limit: 5,
     interval: 30000,
     scan: true,
     filtering: !process.env.CONTINUOUS_INTEGRATION
 };
 
-describe("select", function () {
+var makeDB = function (done) {
+    config.leveldb = crypto.randomBytes(4).toString("hex") + "testdb";
+    done();
+}
 
+
+var removeDB = function (done){
+    mark.disconnect( (err) => {
+        if (err) done(err);
+        leveldown.destroy(config.leveldb, (err) => {
+            if (err) console.log("Delete DB error:", err);
+            done();
+        });
+    });   
+}
+
+describe("select", function () {
+    beforeEach(makeDB);
+    afterEach(removeDB);
     it("retrieve and verify document", function (done) {
         this.timeout(TIMEOUT);
         var id = abi.prefix_hex(crypto.randomBytes(32).toString("hex"));
         var doc = {_id: id, data: "booyah"};
         mark.connect(config, function (err) {
             assert.isNull(err);
-            mark.upsert(doc, function (err, result) {
+            mark.upsert(doc, function (err) {
                 assert.isNull(err);
-                assert.isTrue(result);
                 mark.select(doc._id, function (err, result) {
                     assert.isNull(err);
                     assert.deepEqual(result, doc);
-                    mark.remove(doc._id, function (err, result) {
-                        assert.isNull(err);
-                        assert.property(result, "result");
-                        assert.strictEqual(result.result.n, 1);
-                        assert.strictEqual(result.result.ok, 1);
-                        mark.disconnect();
-                        done();
-                    });
+                    done();
                 });
             });
         });
     });
-
 });
 
 describe("upsert", function () {
-
+    beforeEach(makeDB);
+    afterEach(removeDB);
     it("insert and update document", function (done) {
         this.timeout(TIMEOUT);
         var id = abi.prefix_hex(crypto.randomBytes(32).toString("hex"));
-        var doc = {_id: id, data: "hello world"};
+        var doc = {_id: id, creationTime: 4, data: "hello world"};
         mark.connect(config, function (err) {
             assert.isNull(err);
-            mark.upsert(doc, function (err, result) {
+            mark.upsert(doc, function (err) {
                 assert.isNull(err);
-                assert.isTrue(result);
                 mark.select(doc._id, function (err, result) {
                     assert.isNull(err);
                     assert.deepEqual(result, doc);
-                    mark.remove(doc._id, function (err, result) {
+                    doc.data = "goodbye world";
+                    mark.upsert(doc, function (err) {
                         assert.isNull(err);
-                        assert.property(result, "result");
-                        assert.strictEqual(result.result.n, 1);
-                        assert.strictEqual(result.result.ok, 1);
-                        doc.data = "goodbye world";
-                        mark.upsert(doc, function (err,result) {
+                        mark.select(doc._id, function (err, result) {
                             assert.isNull(err);
-                            assert.isTrue(result);
-                            mark.select(doc._id, function (err, result) {
-                                assert.isNull(err);
-                                assert.deepEqual(result, doc);
-                                mark.remove(doc._id, function (err, result) {
-                                    assert.isNull(err);
-                                    assert.property(result, "result");
-                                    assert.strictEqual(result.result.n, 1);
-                                    assert.strictEqual(result.result.ok, 1);
-                                    mark.disconnect();
-                                    done();
-                                });
-                            });
+                            assert.deepEqual(result, doc);
+                            done();
                         });
                     });
                 });
             });
         });
     });
+});
 
+
+describe("getMarkets", function () {
+    beforeEach(makeDB);
+    afterEach(removeDB);
+    it("retrieves marekts in reverse order", function (done) {
+        this.timeout(TIMEOUT);
+        //Insert docs out of order.
+        var data = {
+            "A": {_id: "A", data: 1},
+            "B": {_id: "B", data: 2},
+            "C": {_id: "C", data: 3},
+            "D": {_id: "D", data: 4}  
+        };
+
+        mark.connect(config, (err) => {
+         mark.upsert(data["A"], (err) => {
+          mark.upsert(data["B"], (err) => {
+           mark.upsert(data["C"], (err) => {
+            mark.upsert(data["D"], (err) => {
+             mark.getMarkets( (err, markets) => {
+                assert.isNull(err);
+                assert.isNotNull(markets);
+                var results = JSON.parse(markets);
+                assert.deepEqual(results["A"], data["A"]);
+                assert.deepEqual(results["B"], data["B"]);
+                assert.deepEqual(results["C"], data["C"]);
+                assert.deepEqual(results["D"], data["D"]);
+                done();
+             });
+            });
+           });
+          });
+         });   
+        });
+    });
+
+    it("tests persistence", function (done) {
+        this.timeout(TIMEOUT);
+        var data = {
+            "A": {_id: "A", data: 1}
+        };
+        mark.connect(config, (err) => {
+          mark.upsert(data["A"], (err) => {
+            mark.disconnect( (err) => {
+              mark.connect(config, (err) => {
+                mark.getMarkets( (err, markets) => {
+                  assert.isNull(err);
+                  assert.isNotNull(markets);
+                  var results = JSON.parse(markets);
+                  assert.deepEqual(results["A"], data["A"]);
+                  done();
+                });
+              });
+            });
+          });
+        });
+    });
 });
 
 describe("scan", function () {
+    beforeEach(makeDB);
+    afterEach(removeDB);
+
     if (config.filtering) config.ethereum = "http://127.0.0.1:8545";
 
     it("fetch market info from the blockchain and save to db", function (done) {
         this.timeout(TIMEOUT*100);
-        mark.connect(config, function (err) {
+        mark.connect(config, (err) => {
             assert.isNull(err);
             mark.scan(config, function (err, updates) {
                 assert.isNull(err);
                 assert.strictEqual(updates, config.limit);
-                mark.disconnect();
                 done();
             });
         });
     });
+
 
     it("fetch market info from the blockchain, set up db connection, then save to db", function (done) {
         this.timeout(TIMEOUT*100);
         mark.scan(config, function (err, updates) {
             assert.isNull(err);
             assert.strictEqual(updates, config.limit);
-            mark.disconnect();
-            assert.isNull(mark.watcher);
-            assert.isNull(mark.db);
             done();
         });
     });
 
 });
 
+/*
 describe("watch", function () {
+    beforeEach(makeDB);
+    afterEach(removeDB);
+
     if (config.filtering) config.ethereum = "http://127.0.0.1:8545";
 
     var branch, markets, marketId, outcome, amount, maxNumPolls;
@@ -277,3 +334,4 @@ describe("watch", function () {
         }
     });
 });
+*/

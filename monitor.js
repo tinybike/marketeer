@@ -9,7 +9,7 @@ var mark = require("./");
 
 var config = {
     ethereum: "http://localhost:8545",
-    mongodb: "mongodb://localhost:27017/marketeer?poolSize=5&noDelay=true&connectTimeoutMS=0&socketTimeoutMS=0",
+    leveldb: "./augurmarketdb",
     limit: 0,
     filtering: true,
     interval: null,
