@@ -2,12 +2,19 @@ var http = require("http");
 var getopt = require("posix-getopt");
 var chalk = require("chalk");
 var express = require('express');
+var join = require("path").join;
 var mark = require("./");
 
+var DATADIR = join(process.env.HOME, ".ethereum");
+
 var config = {
-    ethereum: "http://localhost:8545",
+
+    http: "http://localhost:8545",
     leveldb: "./data/marketsdb",
-    limit: null,
+    //ws: "http://127.0.0.1:8546",
+    //ipc: process.env.GETH_IPC || join(DATADIR, "geth.ipc"),
+    //ipc: "/Users/k_day/Library/Ethereum/testnet/geth.ipc",
+    limit: 5,
     filtering: true,
     interval: null,
     scan: true,
@@ -51,10 +58,9 @@ function runserver(protocol, port) {
                 break;
         }
     }
-    
     //to be safe, rescan on every restart. Markets might have updated
     //when node was down.
-    mark.scan(config, function (err, numUpdates) {
+    mark.watch(config, function (err, numUpdates) {
         if (err) throw err;
         log(numUpdates + " markets have been updated!");
         runserver(protocol || "http", port || process.env.PORT || 8547);

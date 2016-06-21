@@ -1,6 +1,6 @@
 /**
  * Augur market monitor
- * @author Jack Peterson (jack@tinybike.net)
+ * @author Jack Peterson (jack@tinybike.net), Keivn Day (@k_day)
  */
 
 "use strict";
@@ -8,7 +8,6 @@
 var async = require("async");
 var levelup = require('levelup');
 var sublevel = require('level-sublevel')
-
 
 var INTERVAL = 600000; // default update interval (10 minutes)
 var noop = function () {};
@@ -24,6 +23,9 @@ module.exports = {
     augur: require("augur.js"),
 
     watcher: null,
+
+    //List of market properties to cache
+    marketProps: {_id:1, tradingPeriod:1, tradingFee:1, creationTime:1, volume:1, tags:1, endDate:1, description:1},
 
     connect: function (config, callback) {
         var self = this;
@@ -113,19 +115,28 @@ module.exports = {
         return callback(null, JSON.stringify(self.marketData));
     },
 
+    upsertMarket: function(market){
+        var self = this;
+
+        function filterProps(){
+            for (var prop in market) {
+                if (!self.marketProps[prop]){
+                    delete market[prop];
+                }
+            }
+        }
+        //Only need to cache a subset of fields.
+        filterProps();
+        console.log(market);
+        self.upsert(market, function (err) {
+            if (err) return console.error("scan upsert error:", err);
+        });
+    },
+
     scan: function (config, callback) {
         var self = this;
         config = config || {};
         callback = callback || noop;
-
-        function upsertMarket(doc){
-            if (self.debug) {
-                //console.log("Doc:", JSON.stringify(marketInfo, null, 2));
-            }
-            self.upsert(doc, function (err) {
-                if (err) return console.error("scan upsert error:", err);
-            });
-        }
 
         //TODO: need to scan all branches?
         if (this.db && typeof this.db === "object" && 
@@ -154,7 +165,7 @@ module.exports = {
                         callback: function (marketsInfo) {
                             if (!marketsInfo || marketsInfo.error) return next(marketsInfo || "getMarketsInfo");
                             async.each(marketsInfo, function (marketInfo, nextMarket) {
-                                upsertMarket(marketInfo);
+                                self.upsertMarket(marketInfo);
                                 nextMarket();
                             }, (err) => {
                                 if (err) return next(err);
@@ -179,39 +190,16 @@ module.exports = {
         var self = this;
         config = config || {};
 
-        function upsertFilterDoc(filtrate, doc) {
-            //console.log("Doc:", doc);
-            //console.log(doc);
-            var code = (filtrate.price) ? -1 : -2;
-            if (self.debug) {
-                console.log("Filtrate:", JSON.stringify(filtrate, null, 2));
-                console.log("Document:", JSON.stringify(doc, null, 2));
-            }
-            if (!filtrate.price && filtrate.blockNumber) {
-                doc.creationBlock = parseInt(filtrate.blockNumber);
-            }
+        function marketCreated(filtrate) {
+            if (!filtrate) return;
 
-            self.upsert(doc, (err) => {
-                if (err) return console.error("filter upsert error:", err, filtrate, doc);
-                if (callback) callback(null, code, {
-                    filtrate: filtrate,
-                    doc: doc,
+            for (var i = 0; i < filtrate.length; ++i){
+                var doc = filtrate[i];
+                if (!doc['data']) continue;
+                self.augur.getMarketInfo(doc['data'], (marketInfo) => {
+                    marketInfo['_id']=doc['data'];
+                    self.upsertMarket(marketInfo);
                 });
-            });
-        }
-
-        function collectFiltrate(filtrate) {
-            console.log("collettFiltrate:", filtrate)
-            if (self.debug) console.log(filtrate);
-            if (filtrate) {
-                if (filtrate.marketId && !filtrate.error) {
-                    self.collect(filtrate.marketId, (err, doc) => {
-                        if (err) return console.error("filter error:", err, filtrate);
-                        upsertFilterDoc(filtrate, doc);
-                    });
-                } else {
-                    console.error("filter error: no marketId field", filtrate);
-                }
             }
         }
 
@@ -222,20 +210,7 @@ module.exports = {
                 if (self.debug) console.log("Connected");
                 if (config.filtering) {
                     self.augur.filters.listen({
-                        /**
-                            { user: '0x05ae1d0ca6206c6168b42efcd1fbe0ed144e821b',
-                              marketId: '-0xcaa8317a2d53b432c94180c591f09c30594e72cb6f747ef12be1bb5504c664bc',
-                              outcome: '1',
-                              price: '1.00000000000000002255',
-                              cost: '-1.00000000000000008137',
-                              blockNumber: '4722' }
-                         */
-                        log_price: collectFiltrate,
-                        /**
-                            { marketId: "-0x65ba5a9c2db024df5cdd4db31a0343608758ebdfcd69bf4eb1810d77502b932e",
-                              blockNumber: "20542" }
-                         */
-                        creation: collectFiltrate
+                        marketCreated: marketCreated,
                     });
                 }
                 (function pulse() {
