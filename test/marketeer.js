@@ -18,12 +18,12 @@ var DEBUG = false;
 var TIMEOUT = 60000;
 
 var config = {
-    ethereum: "https://eth3.augur.net",
+    http: "http://localhost:8545",
     leveldb: "./testdb",
     limit: 5,
-    interval: 30000,
+    interval: null,
     scan: true,
-    filtering: !process.env.CONTINUOUS_INTEGRATION
+    filtering: true
 };
 
 var makeDB = function (done) {
@@ -42,18 +42,20 @@ var removeDB = function (done){
     });   
 }
 
+/*
+
 describe("select", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
     it("retrieve and verify document", function (done) {
         this.timeout(TIMEOUT);
         var id = abi.prefix_hex(crypto.randomBytes(32).toString("hex"));
-        var doc = {_id: id, data: "booyah"};
+        var doc = {data: "booyah"};
         mark.connect(config, function (err) {
             assert.isNull(err);
-            mark.upsert(doc, function (err) {
+            mark.upsert(id, doc, function (err) {
                 assert.isNull(err);
-                mark.select(doc._id, function (err, result) {
+                mark.select(id, function (err, result) {
                     assert.isNull(err);
                     assert.deepEqual(result, doc);
                     done();
@@ -69,18 +71,18 @@ describe("upsert", function () {
     it("insert and update document", function (done) {
         this.timeout(TIMEOUT);
         var id = abi.prefix_hex(crypto.randomBytes(32).toString("hex"));
-        var doc = {_id: id, creationTime: 4, data: "hello world"};
+        var doc = {creationTime: 4, data: "hello world"};
         mark.connect(config, function (err) {
             assert.isNull(err);
-            mark.upsert(doc, function (err) {
+            mark.upsert(id, doc, function (err) {
                 assert.isNull(err);
-                mark.select(doc._id, function (err, result) {
+                mark.select(id, function (err, result) {
                     assert.isNull(err);
                     assert.deepEqual(result, doc);
                     doc.data = "goodbye world";
-                    mark.upsert(doc, function (err) {
+                    mark.upsert(id, doc, function (err) {
                         assert.isNull(err);
-                        mark.select(doc._id, function (err, result) {
+                        mark.select(id, function (err, result) {
                             assert.isNull(err);
                             assert.deepEqual(result, doc);
                             done();
@@ -100,17 +102,17 @@ describe("getMarkets", function () {
         this.timeout(TIMEOUT);
         //Insert docs out of order.
         var data = {
-            "A": {_id: "A", data: 1},
-            "B": {_id: "B", data: 2},
-            "C": {_id: "C", data: 3},
-            "D": {_id: "D", data: 4}  
+            "A": {data: 1},
+            "B": {data: 2},
+            "C": {data: 3},
+            "D": {data: 4}  
         };
 
         mark.connect(config, (err) => {
-         mark.upsert(data["A"], (err) => {
-          mark.upsert(data["B"], (err) => {
-           mark.upsert(data["C"], (err) => {
-            mark.upsert(data["D"], (err) => {
+         mark.upsert("A", data["A"], (err) => {
+          mark.upsert("B", data["B"], (err) => {
+           mark.upsert("C", data["C"], (err) => {
+            mark.upsert("D", data["D"], (err) => {
              mark.getMarkets( (err, markets) => {
                 assert.isNull(err);
                 assert.isNotNull(markets);
@@ -131,10 +133,10 @@ describe("getMarkets", function () {
     it("tests persistence", function (done) {
         this.timeout(TIMEOUT);
         var data = {
-            "A": {_id: "A", data: 1}
+            "A": {data: 1}
         };
         mark.connect(config, (err) => {
-          mark.upsert(data["A"], (err) => {
+          mark.upsert("A", data["A"], (err) => {
             mark.disconnect( (err) => {
               mark.connect(config, (err) => {
                 mark.getMarkets( (err, markets) => {
@@ -161,6 +163,9 @@ describe("scan", function () {
         this.timeout(TIMEOUT*100);
         mark.connect(config, (err) => {
             assert.isNull(err);
+            var branch = mark.augur.branches.dev;
+            var numMarkets = mark.augur.getNumMarkets(branch);
+            var expectedMarkets = numMarkets < config.limit ? numMarkets : config.limit;
             mark.scan(config, function (err, updates) {
                 assert.isNull(err);
                 assert.strictEqual(updates, config.limit);
@@ -168,7 +173,6 @@ describe("scan", function () {
             });
         });
     });
-
 
     it("fetch market info from the blockchain, set up db connection, then save to db", function (done) {
         this.timeout(TIMEOUT*100);
@@ -180,17 +184,131 @@ describe("scan", function () {
     });
 
 });
+*/
+
+
+describe("watch2", function () {
+    beforeEach(makeDB);
+    afterEach(removeDB);
+
+    var branch, markets, marketId, outcome, amount, maxNumPolls;
+
+    config.limit=5;
+
+    mark.augur.connect(config);
+    var branch = mark.augur.branches.dev;
+    var numMarkets = mark.augur.getNumMarkets(branch);
+
+    it("does an initial market scan", function (done) {
+        this.timeout(TIMEOUT*8);
+
+        var expectedMarkets = numMarkets < config.limit ? numMarkets : config.limit;
+
+        mark.watch(config, function (err, updates, data) {
+            assert.isNull(err);
+            assert.isNull(mark.watcher);
+            assert.isNotNull(updates);
+            assert.strictEqual(updates, expectedMarkets);
+            //assert.isNotNull(mark.augur.filters.filter.marketCreated.id);
+            done();
+        });
+    });
+
+    it("listens for market creation", function (done) {
+        this.timeout(TIMEOUT*8);
+
+        mark.watch(config, function (err, updates, data) {
+            assert.isNull(err);
+            assert.isNull(mark.watcher);
+            assert.isNotNull(mark.augur.filters.filter.marketCreated.id);
+
+            setTimeout(function () {
+                var desc = Math.random().toString(36).substring(4);
+                var expDate = new Date("7/2/5099").getTime() / 1000;
+                var tags = ['a', 'b', 'c'];
+                console.log("creating:", {
+                    branchId: branch,
+                    description: desc,
+                    expDate: expDate,
+                    minValue: 1,
+                    maxValue: 2,
+                    numOutcomes: 2,
+                    tradingFee: .02,
+                    makerFees: .25,
+                    tags: tags,
+                    extraInfo: "xtra",
+                    resolution: "generic",
+                });
+                mark.augur.createSingleEventMarket({
+                    branchId: branch,
+                    description: desc,
+                    expDate: expDate,
+                    minValue: 1,
+                    maxValue: 2,
+                    numOutcomes: 2,
+                    tradingFee: .02,
+                    makerFees: .25,
+                    tags: tags,
+                    extraInfo: "xtra",
+                    resolution: "generic",
+                    onSent: function (r) {
+                    console.log("createSingleEventMarket sent:", r);
+                        assert.property(r, "txHash");
+                        assert.property(r, "callReturn");
+                    },
+                    onSuccess: function (r) {
+                        console.log("createSingleEventMarket success:", r);
+                        assert.property(r, "txHash");
+                        assert.property(r, "callReturn");
+                        assert.property(r, "blockHash");
+                        assert.property(r, "blockNumber");
+                        assert.property(r, "marketID");
+                        var maxTries = 5;
+                        var counter = 0;
+                        var id = r["marketID"];
+                        //may be a slight delay betwwen market creation
+                        //and marketeer update. Retry this a few times.
+                        setInterval( () => {
+                            console.log("try:", counter);
+                            mark.getMarkets( (err, markets) => {
+                                assert.isNull(err);
+                                assert.isNotNull(markets);
+                                var results = JSON.parse(markets);
+                                if (results[id]){
+                                    var market = results[id];
+                                    assert.property(market, "tradingPeriod");
+                                    assert.property(market, "tradingFee");
+                                    assert.property(market, "creationTime");
+                                    assert.property(market, "volume");
+                                    assert.property(market, "tags");
+                                    assert.property(market, "endDate");
+                                    assert.deepEqual(market["description"], desc);
+                                    done();
+                                }
+                                if (++counter >= maxTries){
+                                    assert.fail(r, "Market not seen by watch.");
+                                }
+                            });
+                        }, 5000);
+                    },
+                    onFailed: function (r) {
+                        assert.fail(r, "Market creation failure.");
+                        done();
+                    }
+                }); // createSingleEventMarket
+            }, 2500);
+        });
+    });
+});
 
 /*
 describe("watch", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
 
-    if (config.filtering) config.ethereum = "http://127.0.0.1:8545";
-
     var branch, markets, marketId, outcome, amount, maxNumPolls;
 
-    mark.augur.connect(config.ethereum);
+    mark.augur.connect(config);
     branch = mark.augur.branches.dev;
     markets = mark.augur.getMarkets(branch);
     marketId = markets[markets.length - 1];

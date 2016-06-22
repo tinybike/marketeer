@@ -25,7 +25,7 @@ module.exports = {
     watcher: null,
 
     //List of market properties to cache
-    marketProps: {_id:1, tradingPeriod:1, tradingFee:1, creationTime:1, volume:1, tags:1, endDate:1, description:1},
+    marketProps: {tradingPeriod:1, tradingFee:1, creationTime:1, volume:1, tags:1, endDate:1, description:1, makerFee:1, takerFee:1},
 
     connect: function (config, callback) {
         var self = this;
@@ -34,6 +34,7 @@ module.exports = {
         self.augur.connect(config, () => {
             if (config.leveldb){
                 levelup(config.leveldb, (err, db) => {
+                    if (err) return callback(err);
                     self.db = sublevel(db);
                     self.dbMarkets = self.db.sublevel('markets');
                     self.populateMarkets(self.dbMarkets, (err) => {
@@ -51,9 +52,9 @@ module.exports = {
         self.marketData = {};
         if (!marketDB) return callback("db not found");
 
-        marketDB.createValueStream({valueEncoding: 'json'})
+        marketDB.createReadStream({valueEncoding: 'json'})
         .on('data', (data) => {
-            self.marketData[data._id] = data;
+            self.marketData[data.key] = data.value;
         }).on('end', () => {
             return callback(null);
         });
@@ -96,15 +97,15 @@ module.exports = {
     },
 
     //Updates market data
-    upsert: function (doc, callback) {
+    upsert: function (id, doc, callback) {
         var self = this;
         if (!self.db || !self.dbMarkets) return callback("db not found");
-        if (!doc._id) return callback("_id not found");
+        if (!id) return callback("upsert: invalid id");
 
         callback = callback || noop;
-        self.dbMarkets.put(doc._id, doc, {valueEncoding: 'json'}, (err) => {
+        self.dbMarkets.put(id, doc, {valueEncoding: 'json'}, (err) => {
             if (err) return callback(err);
-            self.marketData[doc._id] = doc;
+            self.marketData[id] = doc;
             return callback(null);
         });
     },
@@ -115,8 +116,9 @@ module.exports = {
         return callback(null, JSON.stringify(self.marketData));
     },
 
-    upsertMarket: function(market){
+    upsertMarket: function(id, market){
         var self = this;
+        if (!id) return console.error("upsertMarket: _id not found");
 
         function filterProps(){
             for (var prop in market) {
@@ -127,8 +129,7 @@ module.exports = {
         }
         //Only need to cache a subset of fields.
         filterProps();
-        console.log(market);
-        self.upsert(market, function (err) {
+        self.upsert(id, market, function (err) {
             if (err) return console.error("scan upsert error:", err);
         });
     },
@@ -165,7 +166,7 @@ module.exports = {
                         callback: function (marketsInfo) {
                             if (!marketsInfo || marketsInfo.error) return next(marketsInfo || "getMarketsInfo");
                             async.each(marketsInfo, function (marketInfo, nextMarket) {
-                                self.upsertMarket(marketInfo);
+                                self.upsertMarket(marketInfo['_id'], marketInfo);
                                 nextMarket();
                             }, (err) => {
                                 if (err) return next(err);
@@ -197,8 +198,7 @@ module.exports = {
                 var doc = filtrate[i];
                 if (!doc['data']) continue;
                 self.augur.getMarketInfo(doc['data'], (marketInfo) => {
-                    marketInfo['_id']=doc['data'];
-                    self.upsertMarket(marketInfo);
+                    self.upsertMarket(doc['data'], marketInfo);
                 });
             }
         }
@@ -211,10 +211,13 @@ module.exports = {
                 if (config.filtering) {
                     self.augur.filters.listen({
                         marketCreated: marketCreated,
+                        price: function (msg) {console.log("Price:", msg);},
                     });
                 }
-                (function pulse() {
-                    if (config.scan) {
+                if (!config.scan) {
+                    if (callback) callback(null, 0);
+                }else{
+                    (function pulse() {
                         self.scan(config, (err, updates, markets) => {
                             if (callback) {
                                 if (err) return callback(err);
@@ -224,8 +227,8 @@ module.exports = {
                         if (config.interval) {
                             self.watcher = setTimeout(pulse, config.interval || INTERVAL);
                         }
-                    }
-                })();
+                    })();
+                }
             }
         });
     },

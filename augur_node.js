@@ -14,7 +14,7 @@ var config = {
     //ws: "http://127.0.0.1:8546",
     //ipc: process.env.GETH_IPC || join(DATADIR, "geth.ipc"),
     //ipc: "/Users/k_day/Library/Ethereum/testnet/geth.ipc",
-    limit: 5,
+    limit: null,
     filtering: true,
     interval: null,
     scan: true,
