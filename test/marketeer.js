@@ -187,7 +187,7 @@ describe("scan", function () {
 */
 
 
-describe("watch2", function () {
+describe("watch", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
 
@@ -233,8 +233,8 @@ describe("watch2", function () {
                     minValue: 1,
                     maxValue: 2,
                     numOutcomes: 2,
-                    tradingFee: .02,
-                    makerFees: .25,
+                    makerFee: .002,
+                    takerFee: .005,
                     tags: tags,
                     extraInfo: "xtra",
                     resolution: "generic",
@@ -246,8 +246,8 @@ describe("watch2", function () {
                     minValue: 1,
                     maxValue: 2,
                     numOutcomes: 2,
-                    tradingFee: .02,
-                    makerFees: .25,
+                    makerFee: ".002",
+                    takerFee: ".05",
                     tags: tags,
                     extraInfo: "xtra",
                     resolution: "generic",
@@ -278,6 +278,8 @@ describe("watch2", function () {
                                     var market = results[id];
                                     assert.property(market, "tradingPeriod");
                                     assert.property(market, "tradingFee");
+                                    assert.property(market, "makerFee");
+                                    assert.property(market, "takerFee");
                                     assert.property(market, "creationTime");
                                     assert.property(market, "volume");
                                     assert.property(market, "tags");

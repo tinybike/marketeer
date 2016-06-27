@@ -118,8 +118,8 @@ module.exports = {
 
     upsertMarket: function(id, market){
         var self = this;
-        if (!id) return console.error("upsertMarket: _id not found");
-
+        if (!id) return console.error("upsertMarket: id not found");
+        console.log("upsertMarket", market);
         function filterProps(){
             for (var prop in market) {
                 if (!self.marketProps[prop]){
