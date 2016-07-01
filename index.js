@@ -119,7 +119,7 @@ module.exports = {
     upsertMarket: function(id, market){
         var self = this;
         if (!id) return console.error("upsertMarket: id not found");
-        console.log("upsertMarket", market);
+        //console.log("upsertMarket", market);
         function filterProps(){
             for (var prop in market) {
                 if (!self.marketProps[prop]){
@@ -142,7 +142,7 @@ module.exports = {
         //TODO: need to scan all branches?
         if (this.db && typeof this.db === "object" && 
             this.marketData && typeof this.marketData === "object") {
-            var branchId = this.augur.branches.dev;
+            var branchId = this.augur.constants.DEFAULT_BRANCH_ID;
             var marketsPerPage = 15;
 
             // request data from geth via JSON RPC
@@ -197,10 +197,18 @@ module.exports = {
             for (var i = 0; i < filtrate.length; ++i){
                 var doc = filtrate[i];
                 if (!doc['data']) continue;
-                self.augur.getMarketInfo(doc['data'], (marketInfo) => {
+                self.augur.getMarketInfoCache(doc['data'], (marketInfo) => {
                     self.upsertMarket(doc['data'], marketInfo);
                 });
             }
+        }
+
+        function priceChanged(filtrate) {
+            if (!filtrate) return;
+            if (!filtrate['marketId']) return;
+            self.augur.getMarketInfoCache(filtrate['marketId'], (marketInfo) => {
+                self.upsertMarket(filtrate['marketId'], marketInfo);
+            });
         }
 
         this.connect(config, (err) => {
@@ -211,7 +219,7 @@ module.exports = {
                 if (config.filtering) {
                     self.augur.filters.listen({
                         marketCreated: marketCreated,
-                        price: function (msg) {console.log("Price:", msg);},
+                        price: priceChanged,
                     });
                 }
                 if (!config.scan) {

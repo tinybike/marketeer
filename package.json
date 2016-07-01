@@ -1,6 +1,6 @@
 {
   "name": "marketeer",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Market monitor",
   "main": "index.js",
   "scripts": {
@@ -11,7 +11,7 @@
     "type": "git",
     "url": "git+https://github.com/AugurProject/marketeer.git"
   },
-  "author": "Jack Peterson <jack@tinybike.net>",
+  "author": "Jack Peterson <jack@tinybike.net>, Keivn Day (@k_day)",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/AugurProject/marketeer/issues"
@@ -19,7 +19,7 @@
   "homepage": "https://github.com/AugurProject/marketeer#readme",
   "dependencies": {
     "async": "1.4.2",
-    "augur.js": "1.4.11",
+    "augur.js": "1.5.12",
     "levelup": "1.3.2",
     "leveldown": "1.4.6",
     "level-sublevel": "6.5.4",
