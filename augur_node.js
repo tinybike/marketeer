@@ -5,8 +5,6 @@ var express = require('express');
 var join = require("path").join;
 var mark = require("./");
 
-var DATADIR = join(process.env.HOME, ".ethereum");
-
 var config = {
 
     http: "http://localhost:8545",

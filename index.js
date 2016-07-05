@@ -211,32 +211,45 @@ module.exports = {
             });
         }
 
+        function doneSyncing(){
+            if (config.filtering) {
+                self.augur.filters.listen({
+                    marketCreated: marketCreated,
+                    price: priceChanged,
+                });
+            }
+            if (!config.scan) {
+                if (callback) callback(null, 0);
+            }else{
+                (function pulse() {
+                    self.scan(config, (err, updates, markets) => {
+                        if (callback) {
+                            if (err) return callback(err);
+                            callback(null, updates);
+                        }
+                    });
+                    if (config.interval) {
+                        self.watcher = setTimeout(pulse, config.interval || INTERVAL);
+                    }
+                })();
+            }
+        }
+
         this.connect(config, (err) => {
             if (err) {
                 if (callback) callback(err);
             } else {
                 if (self.debug) console.log("Connected");
-                if (config.filtering) {
-                    self.augur.filters.listen({
-                        marketCreated: marketCreated,
-                        price: priceChanged,
-                    });
-                }
-                if (!config.scan) {
-                    if (callback) callback(null, 0);
-                }else{
-                    (function pulse() {
-                        self.scan(config, (err, updates, markets) => {
-                            if (callback) {
-                                if (err) return callback(err);
-                                callback(null, updates);
-                            }
-                        });
-                        if (config.interval) {
-                            self.watcher = setTimeout(pulse, config.interval || INTERVAL);
-                        }
-                    })();
-                }
+                //Wait until syncing completes to scan/setup filters.
+                var syncWait = setInterval( function() {
+                    var syncing = self.augur.rpc.eth("syncing");
+                    if (syncing == false){
+                        clearInterval(syncWait);
+                        doneSyncing(config);
+                    }else{
+                        console.log("Blockchain still syncing: ", syncing[currentBlock], "/", syncing[highestBlock]);
+                    }
+                }, 30000);
             }
         });
     },
