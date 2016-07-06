@@ -243,11 +243,17 @@ module.exports = {
                 //Wait until syncing completes to scan/setup filters.
                 function syncWait() {
                     var syncing = self.augur.rpc.eth("syncing");
+                    var peers = parseInt(self.augur.rpc.net("peerCount"));
+                    if (!peers){
+                        console.log("Waiting for peers");
+                        setTimeout(syncWait, 30000);
+                        return;
+                    }
                     if (syncing == false){
                         doneSyncing();
                     }else{
-                        console.log('Blockchain still syncing: ', (parseInt(syncing['currentBlock'])/parseInt(syncing['highestBlock'])).toFixed(1) + "% complete");
-                        setInterval(syncWait, 30000);
+                        console.log('Blockchain still syncing:', (parseInt(syncing['currentBlock'])/parseInt(syncing['highestBlock'])*100).toFixed(1) + "% complete");
+                        setTimeout(syncWait, 30000);
                     }
                 }
                 syncWait();
