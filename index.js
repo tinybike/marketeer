@@ -241,15 +241,16 @@ module.exports = {
             } else {
                 if (self.debug) console.log("Connected");
                 //Wait until syncing completes to scan/setup filters.
-                var syncWait = setInterval( function() {
+                function syncWait() {
                     var syncing = self.augur.rpc.eth("syncing");
                     if (syncing == false){
-                        clearInterval(syncWait);
-                        doneSyncing(config);
+                        doneSyncing();
                     }else{
                         console.log('Blockchain still syncing: ', (parseInt(syncing['currentBlock'])/parseInt(syncing['highestBlock'])).toFixed(1) + "% complete");
+                        setInterval(syncWait, 30000);
                     }
-                }, 30000);
+                }
+                syncWait();
             }
         });
     },
