@@ -247,7 +247,7 @@ module.exports = {
                         clearInterval(syncWait);
                         doneSyncing(config);
                     }else{
-                        console.log('Blockchain still syncing: ', syncing['currentBlock'], '/', syncing['highestBlock']);
+                        console.log('Blockchain still syncing: ', (parseInt(syncing['currentBlock'])/parseInt(syncing['highestBlock'])).toFixed(1) + "% complete");
                     }
                 }, 30000);
             }
