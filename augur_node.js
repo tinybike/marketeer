@@ -8,10 +8,9 @@ var mark = require("./");
 var config = {
 
     http: "http://localhost:8545",
+    ws: "http://127.0.0.1:8546",
     leveldb: "./data/marketsdb",
-    //ws: "http://127.0.0.1:8546",
     //ipc: process.env.GETH_IPC || join(DATADIR, "geth.ipc"),
-    //ipc: "/Users/k_day/Library/Ethereum/testnet/geth.ipc",
     limit: null,
     filtering: true,
     interval: null,
