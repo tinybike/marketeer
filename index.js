@@ -105,7 +105,8 @@ module.exports = {
     },
 
     getMarketsInfo: function(branch, callback){
-        var self = this;
+        var self = this;        
+        branch = branch || this.augur.constants.DEFAULT_BRANCH_ID;
         if (!self.marketsInfo) return callback("marketsInfo not loaded");
         if (!self.marketsInfo[branch]) return callback(null, "{}");
 
@@ -118,8 +119,6 @@ module.exports = {
         if (!id) return callback ("upsertMarketInfo: id not found");
         if (!self.db || !self.dbMarketInfo) return callback("upsertMarketInfo: db not found");
         if (!market.branchId) return callback("upsertMarketInfo: branchId not found in market data");
-
-        //console.log("upsertMarketInfo", market);
 
         function filterProps(){
             for (var prop in market) {
@@ -149,11 +148,6 @@ module.exports = {
         if (this.db && typeof this.db === "object" && 
             this.marketsInfo && typeof this.marketsInfo === "object") {
 
-            //for each branch
-            //for each market
-            //var markets = augur.getMarketsInBranch(branchID);
-            //getMarketInfo
-
             var branches = self.augur.getBranches();
             async.each(branches, function (branch, nextBranch){
                 var markets = self.augur.getMarketsInBranch(branch);
@@ -178,46 +172,6 @@ module.exports = {
                 callback(null, numMarkets);
             });
 
-            /*
-            var branchId = this.augur.constants.DEFAULT_BRANCH_ID;
-            var marketsPerPage = 15;
-
-            // request data from geth via JSON RPC
-            self.augur.getNumMarketsBranch(branchId, (numMarkets) => {
-                if (!numMarkets || isNaN(numMarkets)) return callback("no markets found");
-                numMarkets = parseInt(numMarkets);
-                numMarkets = (config.limit) ? Math.min(config.limit, numMarkets) : numMarkets;
-                var numPages = Math.ceil(numMarkets / Number(marketsPerPage));
-                var range = new Array(numPages);
-                for (var i = 0; i < numPages; ++i) {
-                    range[numPages - i - 1] = i*marketsPerPage;
-                }
-                var markets = {};
-                async.forEachOfSeries(range, (offset, index, next) => {
-                    console.log("Scanning:", offset);
-                    var numMarketsToLoad = (index === 0) ? numMarkets - range[index] : marketsPerPage;
-                    self.augur.getMarketsInfo({
-                        branch: branchId,
-                        offset: offset,
-                        numMarketsToLoad: numMarketsToLoad,
-                        callback: function (marketsInfo) {
-                            if (!marketsInfo || marketsInfo.error) return next(marketsInfo || "getMarketsInfo");
-                            async.each(marketsInfo, function (marketInfo, nextMarket) {
-
-                                //self.upsertMarket(marketInfo['_id'], marketInfo);
-                                nextMarket();
-                            }, (err) => {
-                                if (err) return next(err);
-                                next();
-                            });
-                        }
-                    });
-                }, (err) => {
-                    if (err) return callback(err);
-                    callback(null, numMarkets);
-                });
-            });
-*/
         } else {
             this.connect(config, (err) => {
                 if (err) return callback(err);
@@ -236,7 +190,7 @@ module.exports = {
             for (var i = 0; i < filtrate.length; ++i){
                 var doc = filtrate[i];
                 if (!doc['data']) continue;
-                self.augur.getMarketInfoCache(doc['data'], (marketInfo) => {
+                self.augur.getMarketInfo(doc['data'], (marketInfo) => {
                     self.upsertMarketInfo(doc['data'], marketInfo);
                 });
             }
@@ -245,7 +199,7 @@ module.exports = {
         function priceChanged(filtrate) {
             if (!filtrate) return;
             if (!filtrate['marketId']) return;
-            self.augur.getMarketInfoCache(filtrate['marketId'], (marketInfo) => {
+            self.augur.getMarketInfo(filtrate['marketId'], (marketInfo) => {
                 self.upsertMarketInfo(filtrate['marketId'], marketInfo);
             });
         }

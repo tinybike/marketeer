@@ -29,7 +29,8 @@ function isPositiveInt(str) {
 }
 
 app.get('/getMarketsInfo', function (req, res) {
-    mark.getMarketsInfo('0xf69b5', function (err, markets){
+    var branch = req.query['branch'] || null;
+    mark.getMarketsInfo(branch, function (err, markets){
         if (err) console.log(err); //TODO: send error
         res.send(markets);
     });
