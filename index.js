@@ -101,7 +101,15 @@ module.exports = {
     getMarketInfo: function (id, callback) {
         var self = this;
         if (!id) return callback("no market specified");
-        return callback(null, self.marketsInfo[id]);
+        if (!self.dbMarketInfo) return callback("Database not available");
+
+        self.dbMarketInfo.get(id, {valueEncoding: 'json'}, function (err, value) {
+            if (err) {
+                if (err.notFound) {return callback("id not found");}
+                return callback(err);
+            }
+            return callback(null, value);
+        });
     },
 
     getMarketsInfo: function(branch, callback){

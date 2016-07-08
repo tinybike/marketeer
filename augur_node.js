@@ -31,11 +31,23 @@ function isPositiveInt(str) {
 app.get('/getMarketsInfo', function (req, res) {
     var branch = req.query['branch'] || null;
     mark.getMarketsInfo(branch, function (err, markets){
-        if (err) console.log(err); //TODO: send error
+        if (err){
+            res.status(500).send({ error: err });
+        }
         res.send(markets);
     });
 });
 
+app.get('/getMarketInfo', function (req, res) {
+    var id = req.query['id']
+    if (!id) res.status(500).send({ error: "You must specify an ID" });
+    mark.getMarketInfo(id, function (err, market){
+        if (err){
+            res.status(500).send({ error: err });
+        }
+        res.send(market);
+    });
+});
 
 function runserver(protocol, port) {
     app.listen(port, function() {
