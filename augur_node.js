@@ -11,10 +11,10 @@ var config = {
     ws: "http://127.0.0.1:8546",
     leveldb: "./data/marketsdb",
     //ipc: process.env.GETH_IPC || join(DATADIR, "geth.ipc"),
-    limit: null,
+    limit: 5,
     filtering: true,
     interval: null,
-    scan: true,
+    scan: false,
 }
 
 function log(str) {
@@ -28,8 +28,8 @@ function isPositiveInt(str) {
     return String(n) === str && n >= 0;
 }
 
-app.get('/getMarkets', function (req, res) {
-    mark.getMarkets(function (err, markets){
+app.get('/getMarketsInfo', function (req, res) {
+    mark.getMarketsInfo('0xf69b5', function (err, markets){
         if (err) console.log(err); //TODO: send error
         res.send(markets);
     });
