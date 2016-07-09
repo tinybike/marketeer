@@ -42,21 +42,134 @@ var removeDB = function (done){
     });   
 }
 
+var doc1 = { network: '2',
+  makerFee: '0.01',
+  takerFee: '0.02',
+  numOutcomes: 2,
+  tradingPeriod: 4893087,
+  branchId: '1',
+  numEvents: 1,
+  cumulativeScale: '1',
+  creationTime: 1467926059,
+  volume: '0',
+  creationFee: '8.9',
+  author: 'a',
+  tags: [ '1', '2', '3' ],
+  type: 'binary',
+  endDate: 1467926158,
+  winningOutcomes: [ '0', '0'],
+  description: 'doc1',
+  outcomes: 
+   [ { id: 1, outstandingShares: '0', price: '0' },
+     { id: 2, outstandingShares: '0', price: '0' } ],
+  events: 
+   [ { id: '1',
+       endDate: 1467926158,
+       outcome: '0',
+       minValue: '1',
+       maxValue: '2',
+       numOutcomes: 2,
+       type: 'binary' } ] };
 
-describe("select", function () {
+var doc2 = { network: '2',
+  makerFee: '0.01',
+  takerFee: '0.02',
+  numOutcomes: 2,
+  tradingPeriod: 4893087,
+  branchId: '1',
+  numEvents: 1,
+  cumulativeScale: '1',
+  creationTime: 1467926059,
+  volume: '0',
+  creationFee: '8.9',
+  author: 'a',
+  tags: [ '4', '5', '6' ],
+  type: 'binary',
+  endDate: 1467926158,
+  winningOutcomes: [ '0', '0'],
+  description: 'doc2',
+  outcomes: 
+   [ { id: 1, outstandingShares: '0', price: '0' },
+     { id: 2, outstandingShares: '0', price: '0' } ],
+  events: 
+   [ { id: '2',
+       endDate: 1467926158,
+       outcome: '0',
+       minValue: '1',
+       maxValue: '2',
+       numOutcomes: 2,
+       type: 'binary' } ] };
+
+var doc3 = { network: '2',makerFee: '0.01',
+  takerFee: '0.02',
+  numOutcomes: 2,
+  tradingPeriod: 4893087,
+  branchId: '2',
+  numEvents: 1,
+  cumulativeScale: '1',
+  creationTime: 1467926059,
+  volume: '0',
+  creationFee: '8.9',
+  author: 'a',
+  tags: [ '7', '8', '9' ],
+  type: 'binary',
+  endDate: 1467926158,
+  winningOutcomes: [ '0', '0'],
+  description: 'doc3',
+  outcomes: 
+   [ { id: 1, outstandingShares: '0', price: '0' },
+     { id: 2, outstandingShares: '0', price: '0' } ],
+  events: 
+   [ { id: '3',
+       endDate: 1467926158,
+       outcome: '0',
+       minValue: '1',
+       maxValue: '2',
+       numOutcomes: 2,
+       type: 'binary' } ] };
+
+var doc4 = { network: '2',
+  makerFee: '0.01',
+  takerFee: '0.02',
+  numOutcomes: 2,
+  tradingPeriod: 4893087,
+  branchId: '3',
+  numEvents: 1,
+  cumulativeScale: '1',
+  creationTime: 1467926059,
+  volume: '0',
+  creationFee: '8.9',
+  author: 'a',
+  tags: [ '10', '11', '12' ],
+  type: 'binary',
+  endDate: 1467926158,
+  winningOutcomes: [ '0', '0'],
+  description: 'doc4',
+  outcomes: 
+   [ { id: 1, outstandingShares: '0', price: '0' },
+     { id: 2, outstandingShares: '0', price: '0' } ],
+  events: 
+   [ { id: '4',
+       endDate: 1467926158,
+       outcome: '0',
+       minValue: '1',
+       maxValue: '2',
+       numOutcomes: 2,
+       type: 'binary' } ] };
+
+describe("getMarketInfo", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
     it("retrieve and verify document", function (done) {
         this.timeout(TIMEOUT);
         var id = abi.prefix_hex(crypto.randomBytes(32).toString("hex"));
-        var doc = {data: "booyah"};
         mark.connect(config, function (err) {
             assert.isNull(err);
-            mark.upsert(id, doc, function (err) {
+            mark.upsertMarketInfo(id, doc1, function (err) {
                 assert.isNull(err);
-                mark.select(id, function (err, result) {
+                mark.getMarketInfo(id, function (err, result) {
                     assert.isNull(err);
-                    assert.deepEqual(result, doc);
+                    assert.deepEqual(result, doc1);
                     done();
                 });
             });
@@ -64,26 +177,25 @@ describe("select", function () {
     });
 });
 
-describe("upsert", function () {
+describe("upsertMarketInfo", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
     it("insert and update document", function (done) {
         this.timeout(TIMEOUT);
         var id = abi.prefix_hex(crypto.randomBytes(32).toString("hex"));
-        var doc = {creationTime: 4, data: "hello world"};
         mark.connect(config, function (err) {
             assert.isNull(err);
-            mark.upsert(id, doc, function (err) {
+            mark.upsertMarketInfo(id, doc1, function (err) {
                 assert.isNull(err);
-                mark.select(id, function (err, result) {
+                mark.getMarketInfo(id, function (err, result) {
                     assert.isNull(err);
-                    assert.deepEqual(result, doc);
-                    doc.data = "goodbye world";
-                    mark.upsert(id, doc, function (err) {
+                    assert.deepEqual(result, doc1);
+                    doc1.volume = "50";
+                    mark.upsertMarketInfo(id, doc1, function (err) {
                         assert.isNull(err);
-                        mark.select(id, function (err, result) {
+                        mark.getMarketInfo(id, function (err, result) {
                             assert.isNull(err);
-                            assert.deepEqual(result, doc);
+                            assert.deepEqual(result, doc1);
                             done();
                         });
                     });
@@ -93,33 +205,37 @@ describe("upsert", function () {
     });
 });
 
-
-describe("getMarkets", function () {
+describe("getMarketsInfo", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
-    it("retrieves marekts", function (done) {
+    
+    it("retrieves marekts from branch", function (done) {
         this.timeout(TIMEOUT);
-        //Insert docs out of order.
-        var data = {
-            "A": {data: 1},
-            "B": {data: 2},
-            "C": {data: 3},
-            "D": {data: 4}  
-        };
 
         mark.connect(config, (err) => {
-         mark.upsert("A", data["A"], (err) => {
-          mark.upsert("B", data["B"], (err) => {
-           mark.upsert("C", data["C"], (err) => {
-            mark.upsert("D", data["D"], (err) => {
-             mark.getMarkets( (err, markets) => {
+         mark.upsertMarketInfo("A", doc1, (err) => {
+          mark.upsertMarketInfo("B", doc2, (err) => {
+           mark.upsertMarketInfo("C", doc3, (err) => {
+            mark.upsertMarketInfo("D", doc4, (err) => {
+             //2 markets w/ branch id: 1
+             mark.getMarketsInfo("1", (err, markets) => {
                 assert.isNull(err);
                 assert.isNotNull(markets);
                 var results = JSON.parse(markets);
-                assert.deepEqual(results["A"], data["A"]);
-                assert.deepEqual(results["B"], data["B"]);
-                assert.deepEqual(results["C"], data["C"]);
-                assert.deepEqual(results["D"], data["D"]);
+                assert.property(results, 'A');
+                assert.property(results, 'B');
+                assert.notProperty(results, 'C');
+                assert.notProperty(results, 'D');
+                assert.deepEqual(Object.keys(results['A']).length, 8);
+                assert.deepEqual(Object.keys(results['B']).length, 8);
+                assert.deepEqual(results['A']['makerFee'], doc1.makerFee);
+                assert.deepEqual(results['A']['takerFee'], doc1.takerFee);
+                assert.deepEqual(results['A']['tradingPeriod'], doc1.tradingPeriod);
+                assert.deepEqual(results['A']['creationTime'], doc1.creationTime);
+                assert.deepEqual(results['A']['volume'], doc1.volume);
+                assert.deepEqual(results['A']['tags'], doc1.tags);
+                assert.deepEqual(results['A']['endDate'], doc1.endDate);
+                assert.deepEqual(results['A']['description'], doc1.description);
                 done();
              });
             });
@@ -131,18 +247,16 @@ describe("getMarkets", function () {
 
     it("tests persistence", function (done) {
         this.timeout(TIMEOUT);
-        var data = {
-            "A": {data: 1}
-        };
         mark.connect(config, (err) => {
-          mark.upsert("A", data["A"], (err) => {
+          mark.upsertMarketInfo("A", doc1, (err) => {
             mark.disconnect( (err) => {
               mark.connect(config, (err) => {
-                mark.getMarkets( (err, markets) => {
+                mark.getMarketsInfo("1", (err, markets) => {
                   assert.isNull(err);
                   assert.isNotNull(markets);
                   var results = JSON.parse(markets);
-                  assert.deepEqual(results["A"], data["A"]);
+                  assert.property(results, 'A');
+                  assert.deepEqual(Object.keys(results['A']).length, 8);
                   done();
                 });
               });
@@ -150,7 +264,9 @@ describe("getMarkets", function () {
           });
         });
     });
+
 });
+
 
 describe("scan", function () {
     beforeEach(makeDB);
@@ -181,7 +297,7 @@ describe("scan", function () {
     });
 
 });
-
+/*
 
 describe("watch", function () {
     beforeEach(makeDB);
@@ -430,4 +546,4 @@ describe("watch", function () {
     }); 
 
 });
-
+*/

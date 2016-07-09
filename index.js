@@ -58,7 +58,8 @@ module.exports = {
                 return callback('populateMarkets Error: branch not found');
             }
             var branch = data.value.branchId;
-            self.marketsInfo[data.value.branchId] = self.marketsInfo[data.value.branchId] || {};
+            self.filterProps(data.value);
+            self.marketsInfo[branch] = self.marketsInfo[branch] || {};
             self.marketsInfo[branch][data.key] = data.value;
         }).on('error', (err) => {
             return callback('populateMarkets Error:', err);
@@ -121,6 +122,15 @@ module.exports = {
         return callback(null, JSON.stringify(self.marketsInfo[branch]));
     },
 
+    filterProps: function (doc){
+        var self = this;
+        for (var prop in doc) {
+            if (!self.marketProps[prop]){
+                delete doc[prop];
+            }
+        }
+    },
+
     upsertMarketInfo: function(id, market, callback){
         var self = this;
         callback = callback || noop;
@@ -128,21 +138,17 @@ module.exports = {
         if (!self.db || !self.dbMarketInfo) return callback("upsertMarketInfo: db not found");
         if (!market.branchId) return callback("upsertMarketInfo: branchId not found in market data");
 
-        function filterProps(){
-            for (var prop in market) {
-                if (!self.marketProps[prop]){
-                    delete market[prop];
-                }
-            }
-        }
 
+        var branch = market.branchId;
         self.dbMarketInfo.put(id, market, {valueEncoding: 'json'}, (err) => {
             //Only need to cache a subset of fields.
-            filterProps();
+            //Make a copy of object so we don't modify doc that was passed in.
+            var cacheInfo = JSON.parse(JSON.stringify(market));
+            self.filterProps(cacheInfo);
             if (err) return callback("upsertMarket error:", err);
-            var branch = market.branchId;
+
             self.marketsInfo[branch] = self.marketsInfo[branch] || {};
-            self.marketsInfo[branch][id] = market;
+            self.marketsInfo[branch][id] = cacheInfo;
             return callback(null);
         });
     },
