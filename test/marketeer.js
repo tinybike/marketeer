@@ -276,8 +276,11 @@ describe("scan", function () {
         this.timeout(TIMEOUT*100);
         mark.connect(config, (err) => {
             assert.isNull(err);
-            var branch = mark.augur.constants.DEFAULT_BRANCH_ID;
-            var numMarkets = mark.augur.getNumMarkets(branch);
+            var numMarkets = 0;
+            var branches = mark.augur.getBranches();
+            for (var i =0; i < branches.length; ++i){
+                numMarkets += mark.augur.getMarketsInBranch(branches[i]).length;
+            }
             var expectedMarkets = numMarkets < config.limit ? numMarkets : config.limit;
             mark.scan(config, function (err, updates) {
                 assert.isNull(err);

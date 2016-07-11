@@ -162,25 +162,33 @@ module.exports = {
         if (this.db && typeof this.db === "object" && 
             this.marketsInfo && typeof this.marketsInfo === "object") {
 
+            config.limit = config.limit || Number.MAX_VALUE;
             var branches = self.augur.getBranches();
             async.each(branches, function (branch, nextBranch){
-                var markets = self.augur.getMarketsInBranch(branch);
-                numMarkets = numMarkets + markets.length
-                console.log("Loading", markets.length, "markets from branch", branch);
-                var count = 0;
-                async.each(markets, function (market, nextMarket){
-                    if (++count%100==0){
-                        console.log((count/markets.length*100).toFixed(2), "% complete");
-                    }
-                    var marketInfo = self.augur.getMarketInfo(market);
-                    if (marketInfo && !marketInfo.error){
-                        self.upsertMarketInfo(market, marketInfo)
-                    }
-                    nextMarket();
-                }, (err) => {
-                    if (err) return nextBranch(err);
-                    nextBranch();
-                });
+                if (numMarkets < config.limit) {
+                    var markets = self.augur.getMarketsInBranch(branch);
+                    console.log("Loading", markets.length, "markets from branch", branch);
+                    var count = 0;
+                    async.each(markets, function (market, nextMarket){
+                        //only do this if we haven't hit out market limit yet set in config.
+                        if (numMarkets < config.limit) {
+                            if (++count%100==0){
+                                console.log((count/markets.length*100).toFixed(2), "% complete");
+                            }
+                            var marketInfo = self.augur.getMarketInfo(market);
+                            if (marketInfo && !marketInfo.error){
+                                self.upsertMarketInfo(market, marketInfo)
+                            }
+                            numMarkets++;
+                        }
+                        nextMarket();
+                    }, (err) => {
+                        if (err) return nextBranch(err);
+                        nextBranch();
+                    });
+                }else{
+                    nextBranch(); //skips to next branch if market limit already hit.
+                }
             }, (err) => {
                 if (err) return callback(err);
                 callback(null, numMarkets);
