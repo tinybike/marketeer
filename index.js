@@ -59,6 +59,7 @@ module.exports = {
             }
             var branch = data.value.branchId;
             self.filterProps(data.value);
+            data.value.tradingFee = self.augur.getTradingFee(data.key);
             self.marketsInfo[branch] = self.marketsInfo[branch] || {};
             self.marketsInfo[branch][data.key] = data.value;
         }).on('error', (err) => {
@@ -138,13 +139,14 @@ module.exports = {
         if (!self.db || !self.dbMarketInfo) return callback("upsertMarketInfo: db not found");
         if (!market.branchId) return callback("upsertMarketInfo: branchId not found in market data");
 
-
         var branch = market.branchId;
         self.dbMarketInfo.put(id, market, {valueEncoding: 'json'}, (err) => {
             //Only need to cache a subset of fields.
             //Make a copy of object so we don't modify doc that was passed in.
             var cacheInfo = JSON.parse(JSON.stringify(market));
             self.filterProps(cacheInfo);
+            //trading generated, not stored on chain. We want to cache this.
+            cacheInfo.tradingFee = self.augur.getTradingFee(id);
             if (err) return callback("upsertMarket error:", err);
 
             self.marketsInfo[branch] = self.marketsInfo[branch] || {};
@@ -227,26 +229,35 @@ module.exports = {
         }
 
         function doneSyncing(){
+
+            function pulseHelper(){
+                if (!config.scan) {
+                    if (callback) callback(null, 0);
+                }else{
+                    (function pulse() {
+                        self.scan(config, (err, updates, markets) => {
+                            if (callback) {
+                                if (err) return callback(err);
+                                callback(null, updates);
+                            }
+                        });
+                        if (config.interval) {
+                            self.watcher = setTimeout(pulse, config.interval || INTERVAL);
+                        }
+                    })();
+                }
+            }
+
+            //if we are filtering, delay watch callback/scan pulsing until filters are set up
             if (config.filtering) {
                 self.augur.filters.listen({
                     marketCreated: marketCreated,
                     price: priceChanged,
+                }, function (filters) {
+                   pulseHelper();
                 });
-            }
-            if (!config.scan) {
-                if (callback) callback(null, 0);
             }else{
-                (function pulse() {
-                    self.scan(config, (err, updates, markets) => {
-                        if (callback) {
-                            if (err) return callback(err);
-                            callback(null, updates);
-                        }
-                    });
-                    if (config.interval) {
-                        self.watcher = setTimeout(pulse, config.interval || INTERVAL);
-                    }
-                })();
+                pulseHelper();
             }
         }
 
@@ -265,6 +276,7 @@ module.exports = {
                         return;
                     }
                     if (syncing == false){
+                        console.log("done syncing");
                         doneSyncing();
                     }else{
                         console.log('Blockchain still syncing:', (parseInt(syncing['currentBlock'])/parseInt(syncing['highestBlock'])*100).toFixed(1) + "% complete");
@@ -279,24 +291,13 @@ module.exports = {
     unwatch: function () {
         var self = this;
 
-        if (self.augur.filters.price_filter.id ||
-            self.augur.filters.contracts_filter.id)
-        {
-            self.augur.filters.ignore(true);
-        }
+        self.augur.filters.ignore(true);
+    
         if (self.watcher) {
             clearTimeout(this.watcher);
             self.watcher = null;
         }
 
-        this.disconnect( (err) => {
-            if (err) return 0;
-            return !(
-                this.watcher && this.db &&
-                this.augur.filters.price_filter.id &&
-                this.augur.filters.price_filter.heartbeat
-            );
-        });
     }
 
 };

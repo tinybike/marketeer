@@ -226,8 +226,8 @@ describe("getMarketsInfo", function () {
                 assert.property(results, 'B');
                 assert.notProperty(results, 'C');
                 assert.notProperty(results, 'D');
-                assert.deepEqual(Object.keys(results['A']).length, 8);
-                assert.deepEqual(Object.keys(results['B']).length, 8);
+                assert.deepEqual(Object.keys(results['A']).length, 9);
+                assert.deepEqual(Object.keys(results['B']).length, 9);
                 assert.deepEqual(results['A']['makerFee'], doc1.makerFee);
                 assert.deepEqual(results['A']['takerFee'], doc1.takerFee);
                 assert.deepEqual(results['A']['tradingPeriod'], doc1.tradingPeriod);
@@ -236,6 +236,7 @@ describe("getMarketsInfo", function () {
                 assert.deepEqual(results['A']['tags'], doc1.tags);
                 assert.deepEqual(results['A']['endDate'], doc1.endDate);
                 assert.deepEqual(results['A']['description'], doc1.description);
+                assert.property(results['A'], 'tradingFee');
                 done();
              });
             });
@@ -256,7 +257,7 @@ describe("getMarketsInfo", function () {
                   assert.isNotNull(markets);
                   var results = JSON.parse(markets);
                   assert.property(results, 'A');
-                  assert.deepEqual(Object.keys(results['A']).length, 8);
+                  assert.deepEqual(Object.keys(results['A']).length, 9);
                   done();
                 });
               });
@@ -300,7 +301,8 @@ describe("scan", function () {
     });
 
 });
-/*
+
+
 
 describe("watch", function () {
     beforeEach(makeDB);
@@ -311,27 +313,33 @@ describe("watch", function () {
     config.limit=5;
 
     mark.augur.connect(config);
-    var branch = mark.augur.constants.DEFAULT_BRANCH_ID;
-    var numMarkets = mark.augur.getNumMarketsBranch(branch);
 
+    var numMarkets = 0;
+    var branches = mark.augur.getBranches();
+    for (var i =0; i < branches.length; ++i){
+        numMarkets += mark.augur.getMarketsInBranch(branches[i]).length;
+    }
     var expectedMarkets = numMarkets < config.limit ? numMarkets : config.limit;
 
     it("does an initial market scan", function (done) {
+        console.log("test1");
         this.timeout(TIMEOUT*8);
-        mark.watch(config, function (err, updates, data) {
+        mark.watch(config, function (err, updates) {
             assert.isNull(err);
             assert.isNull(mark.watcher);
             assert.isNotNull(updates);
             assert.strictEqual(updates, expectedMarkets);
             assert.isNotNull(mark.augur.filters.filter.marketCreated.id);
+            mark.unwatch();
             done();
         });
     });
 
+    var branch = mark.augur.constants.DEFAULT_BRANCH_ID
+
     it("listens for market creation", function (done) {
         this.timeout(TIMEOUT*8);
-
-        mark.watch(config, function (err, updates, data) {
+        mark.watch(config, function (err, updates) {
             assert.isNull(err);
             assert.isNull(mark.watcher);
             assert.isNotNull(mark.augur.filters.filter.marketCreated.id);
@@ -384,7 +392,7 @@ describe("watch", function () {
                         //and marketeer update. Retry this a few times.
                         var timerId = setInterval( () => {
                             console.log("try:", counter);
-                            mark.getMarkets( (err, markets) => {
+                            mark.getMarketsInfo(branch, (err, markets) => {
                                 assert.isNull(err);
                                 assert.isNotNull(markets);
                                 var results = JSON.parse(markets);
@@ -420,7 +428,6 @@ describe("watch", function () {
 
     it("listens for price changes", function (done) {
         this.timeout(TIMEOUT*20);
-
         mark.watch(config, function (err, updates, data) {
             assert.isNull(err);
             assert.isNull(mark.watcher);
@@ -501,7 +508,7 @@ describe("watch", function () {
                                                     var counter = 0;
                                                     var timerId = setInterval( () => {
                                                         console.log("try:", counter);
-                                                        mark.getMarkets( (err, markets) => {
+                                                        mark.getMarketsInfo(branch, (err, markets) => {
                                                             assert.isNull(err);
                                                             assert.isNotNull(markets);
                                                             var results = JSON.parse(markets);
@@ -549,4 +556,4 @@ describe("watch", function () {
     }); 
 
 });
-*/
+
