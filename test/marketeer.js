@@ -303,7 +303,6 @@ describe("scan", function () {
 });
 
 
-
 describe("watch", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
@@ -322,7 +321,6 @@ describe("watch", function () {
     var expectedMarkets = numMarkets < config.limit ? numMarkets : config.limit;
 
     it("does an initial market scan", function (done) {
-        console.log("test1");
         this.timeout(TIMEOUT*8);
         mark.watch(config, function (err, updates) {
             assert.isNull(err);
@@ -330,8 +328,7 @@ describe("watch", function () {
             assert.isNotNull(updates);
             assert.strictEqual(updates, expectedMarkets);
             assert.isNotNull(mark.augur.filters.filter.marketCreated.id);
-            mark.unwatch();
-            done();
+            mark.unwatch(done);
         });
     });
 
@@ -407,7 +404,7 @@ describe("watch", function () {
                                     assert.property(market, "tags");
                                     assert.property(market, "endDate");
                                     assert.deepEqual(market["description"], desc);
-                                    done();
+                                    mark.unwatch(done);
                                     clearInterval(timerId);
                                     return;
                                 }
@@ -518,7 +515,7 @@ describe("watch", function () {
                                                             //If we see the volume change, we are done.
                                                             if (original_volume != market.volume){
                                                                 clearInterval(timerId);
-                                                                done();
+                                                                mark.unwatch(done);
                                                                 return;
                                                             }
                                                             if (++counter >= maxTries){
@@ -554,6 +551,5 @@ describe("watch", function () {
             }, 2500); //setTimeout
         }); //watch
     }); 
-
 });
 

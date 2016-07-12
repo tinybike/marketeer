@@ -276,7 +276,6 @@ module.exports = {
                         return;
                     }
                     if (syncing == false){
-                        console.log("done syncing");
                         doneSyncing();
                     }else{
                         console.log('Blockchain still syncing:', (parseInt(syncing['currentBlock'])/parseInt(syncing['highestBlock'])*100).toFixed(1) + "% complete");
@@ -288,16 +287,16 @@ module.exports = {
         });
     },
 
-    unwatch: function () {
+    unwatch: function (callback) {
         var self = this;
 
-        self.augur.filters.ignore(true);
-    
+        callback = callback || noop;
+
         if (self.watcher) {
             clearTimeout(this.watcher);
             self.watcher = null;
         }
-
+        self.augur.filters.ignore(true, callback);
     }
 
 };
