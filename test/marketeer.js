@@ -169,7 +169,7 @@ describe("getMarketInfo", function () {
                 assert.isNull(err);
                 mark.getMarketInfo(id, function (err, result) {
                     assert.isNull(err);
-                    assert.deepEqual(result, doc1);
+                    assert.deepEqual(result, JSON.stringify(doc1));
                     done();
                 });
             });
@@ -189,13 +189,13 @@ describe("upsertMarketInfo", function () {
                 assert.isNull(err);
                 mark.getMarketInfo(id, function (err, result) {
                     assert.isNull(err);
-                    assert.deepEqual(result, doc1);
+                    assert.deepEqual(result, JSON.stringify(doc1));
                     doc1.volume = "50";
                     mark.upsertMarketInfo(id, doc1, function (err) {
                         assert.isNull(err);
                         mark.getMarketInfo(id, function (err, result) {
                             assert.isNull(err);
-                            assert.deepEqual(result, doc1);
+                            assert.deepEqual(result, JSON.stringify(doc1));
                             done();
                         });
                     });
@@ -268,6 +268,32 @@ describe("getMarketsInfo", function () {
 
 });
 
+describe("batchGetMarketsInfo", function () {
+    beforeEach(makeDB);
+    afterEach(removeDB);
+    
+    it("retrieves marekts in bulk", function (done) {
+        this.timeout(TIMEOUT);
+        mark.connect(config, (err) => {
+         mark.upsertMarketInfo("A", doc1, (err) => {
+          mark.upsertMarketInfo("B", doc2, (err) => {
+            mark.batchGetMarketInfo(["A", "B", "C"], (err, markets) => {
+                assert.isNull(err);
+                var results = JSON.parse(markets);
+                assert.property(results, "A");
+                assert.property(results, "B");
+                assert.notProperty(results, "C");
+                //console.log(results["A"]);
+                //console.log(JSON.stringify(doc1));
+                assert.deepEqual(results["A"], doc1);
+                assert.deepEqual(results["B"], doc2);
+                done();
+            });
+          });
+        });
+       });
+    })
+});
 
 describe("scan", function () {
     beforeEach(makeDB);

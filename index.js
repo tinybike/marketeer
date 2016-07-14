@@ -110,7 +110,7 @@ module.exports = {
                 if (err.notFound) {return callback("id not found");}
                 return callback(err);
             }
-            return callback(null, value);
+            return callback(null, JSON.stringify(value));
         });
     },
 
@@ -137,7 +137,7 @@ module.exports = {
             });
         }, (err) => {
             if (err) return callback(err);
-            callback(null, info);
+            callback(null, JSON.stringify(info));
         });
     },
 
