@@ -11,10 +11,10 @@ var config = {
     ws: "http://127.0.0.1:8546",
     leveldb: "./data/marketsdb",
     //ipc: process.env.GETH_IPC || join(DATADIR, "geth.ipc"),
-    limit: 5,
+    limit: null,
     filtering: true,
     interval: null,
-    scan: false,
+    scan: true,
 }
 
 function log(str) {
@@ -46,6 +46,18 @@ app.get('/getMarketInfo', function (req, res) {
             res.status(500).send({ error: err });
         }
         res.send(market);
+    });
+});
+
+app.get('/batchGetMarketInfo', function (req, res) {
+    var idsParam = req.query['ids'];
+    if (!idsParam) res.status(500).send({ error: "You must specify a list of ids" });
+    var ids = idsParam.split(',');
+    mark.batchGetMarketInfo(ids, function (err, markets) {
+        if (err){
+            res.status(500).send({ error: err });
+        }
+        res.send(markets);
     });
 });
 

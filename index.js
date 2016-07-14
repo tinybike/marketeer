@@ -123,6 +123,24 @@ module.exports = {
         return callback(null, JSON.stringify(self.marketsInfo[branch]));
     },
 
+    batchGetMarketInfo: function(ids, callback){
+        var self = this;
+        if (!ids || ids.constructor !== Array) return callback("array of ids expected");
+        if (!self.dbMarketInfo) return callback("Database not available");
+
+        var info = {};
+        async.each(ids, function (id, nextID){
+            self.dbMarketInfo.get(id, {valueEncoding: 'json'}, function (err, value) {
+                //skip invalid ids
+                if (!err) { info[id] = value };
+                nextID();
+            });
+        }, (err) => {
+            if (err) return callback(err);
+            callback(null, info);
+        });
+    },
+
     filterProps: function (doc){
         var self = this;
         for (var prop in doc) {
@@ -252,7 +270,7 @@ module.exports = {
             if (config.filtering) {
                 self.augur.filters.listen({
                     marketCreated: marketCreated,
-                    price: priceChanged,
+                    log_price: priceChanged,
                 }, function (filters) {
                    pulseHelper();
                 });
