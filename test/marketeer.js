@@ -22,7 +22,7 @@ var config = {
     leveldb: "./testdb",
     limit: 5,
     interval: null,
-    scan: true,
+    scan: false,
     filtering: true
 };
 
@@ -42,9 +42,12 @@ var removeDB = function (done){
     });   
 }
 
+
+//test market Data
 var doc1 = { network: '2',
   makerFee: '0.01',
   takerFee: '0.02',
+  tradingFee: '0.03',
   numOutcomes: 2,
   tradingPeriod: 4893087,
   branchId: '1',
@@ -74,6 +77,7 @@ var doc1 = { network: '2',
 var doc2 = { network: '2',
   makerFee: '0.01',
   takerFee: '0.02',
+  tradingFee: '0.03',
   numOutcomes: 2,
   tradingPeriod: 4893087,
   branchId: '1',
@@ -100,8 +104,10 @@ var doc2 = { network: '2',
        numOutcomes: 2,
        type: 'binary' } ] };
 
-var doc3 = { network: '2',makerFee: '0.01',
+var doc3 = { network: '2',
+  makerFee: '0.01',
   takerFee: '0.02',
+  tradingFee: '0.03',
   numOutcomes: 2,
   tradingPeriod: 4893087,
   branchId: '2',
@@ -131,6 +137,7 @@ var doc3 = { network: '2',makerFee: '0.01',
 var doc4 = { network: '2',
   makerFee: '0.01',
   takerFee: '0.02',
+  tradingFee: '0.03',
   numOutcomes: 2,
   tradingPeriod: 4893087,
   branchId: '3',
@@ -156,6 +163,68 @@ var doc4 = { network: '2',
        maxValue: '2',
        numOutcomes: 2,
        type: 'binary' } ] };
+
+
+//test price history
+var history = { '1': 
+   [ { market: '1',
+       type: 2,
+       user: 'A',
+       price: '0.01',
+       shares: '1',
+       timestamp: 1468531807,
+       blockNumber: 1},
+     { market: '1',
+       type: 1,
+       user: 'A',
+       price: '0.999',
+       shares: '1',
+       timestamp: 2,
+       blockNumber: 1309015 },
+     { market: '1',
+       type: 2,
+       user: 'A',
+       price: '0.52',
+       shares: '0.25',
+       timestamp: 1468531957,
+       blockNumber: 3 },
+     { market: '1',
+       type: 2,
+       user: 'B',
+       price: '0.5',
+       shares: '0.916478745098039215',
+       timestamp: 1468531957,
+       blockNumber: 4} ], 
+    '2': 
+   [ { market: '1',
+       type: 2,
+       user: 'C',
+       price: '0.01',
+       shares: '1',
+       timestamp: 1468531807,
+       blockNumber: 3 },
+     { market: '1',
+       type: 1,
+       user: 'C',
+       price: '0.999',
+       shares: '1',
+       timestamp: 1468531897,
+       blockNumber: 4 },
+     { market: '1',
+       type: 2,
+       user: 'D',
+       price: '0.52',
+       shares: '0.25',
+       timestamp: 1468531957,
+       blockNumber: 5},
+     { market: '1',
+       type: 2,
+       user: 'E',
+       price: '0.5',
+       shares: '0.916478745098039215',
+       timestamp: 1468531957,
+       blockNumber: 6 } ]
+   };
 
 describe("getMarketInfo", function () {
     beforeEach(makeDB);
@@ -209,7 +278,7 @@ describe("getMarketsInfo", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
     
-    it("retrieves marekts from branch", function (done) {
+    it("retrieves markets from branch", function (done) {
         this.timeout(TIMEOUT);
 
         mark.connect(config, (err) => {
@@ -283,8 +352,6 @@ describe("batchGetMarketsInfo", function () {
                 assert.property(results, "A");
                 assert.property(results, "B");
                 assert.notProperty(results, "C");
-                //console.log(results["A"]);
-                //console.log(JSON.stringify(doc1));
                 assert.deepEqual(results["A"], doc1);
                 assert.deepEqual(results["B"], doc2);
                 done();
@@ -294,6 +361,52 @@ describe("batchGetMarketsInfo", function () {
        });
     })
 });
+
+
+describe("getMarketPriceHistory", function (done){
+    beforeEach(makeDB);
+    afterEach(removeDB);
+
+    it("fetches history with no options", function (done) {
+        this.timeout(TIMEOUT);
+        mark.connect(config, (err) => {
+            mark.upsertPriceHistory("A", history, (err) => {
+                assert.isNull(err);
+                mark.getMarketPriceHistory("A", function (err, value) {
+                    assert.isNull(err);
+                    var results = JSON.parse(value);
+                    assert.deepEqual(results, history);
+                    done();
+                });
+            });
+        });
+    });
+
+    it("fetches history with options", function (done) {
+        this.timeout(TIMEOUT);
+        mark.connect(config, (err) => {
+            mark.upsertPriceHistory("A", history, (err) => {
+                assert.isNull(err);
+                var options = {fromBlock: 2, toBlock: 4};
+                mark.getMarketPriceHistory("A", options, function (err, value) {
+                    assert.isNull(err);
+                    var results = JSON.parse(value);
+                    assert.property(results, '1');
+                    assert.property(results, '2');
+                    assert.deepEqual(results['1'].length, 2);
+                    assert.deepEqual(results['2'].length, 2);
+                    assert.deepEqual(results['1'][0]['blockNumber'], 3);
+                    assert.deepEqual(results['1'][1]['blockNumber'], 4);
+                    assert.deepEqual(results['2'][0]['blockNumber'], 3);
+                    assert.deepEqual(results['2'][1]['blockNumber'], 4);
+                    done();
+                });
+            });
+        });
+    });
+});
+
+
 
 describe("scan", function () {
     beforeEach(makeDB);

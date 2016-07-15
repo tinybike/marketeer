@@ -18,6 +18,8 @@ module.exports = {
 
     db: null,
     dbMarketInfo: null,
+    dbMarketPriceHistory: null,
+
     marketsInfo: null,
     
     augur: require("augur.js"),
@@ -37,6 +39,7 @@ module.exports = {
                     if (err) return callback(err);
                     self.db = sublevel(db);
                     self.dbMarketInfo = self.db.sublevel('markets');
+                    self.dbMarketPriceHistory = self.db.sublevel('pricehistory');
                     self.populateMarkets(self.dbMarketInfo, (err) => {
                         if (err) return callback(err);
                         return callback(null);
@@ -59,7 +62,6 @@ module.exports = {
             }
             var branch = data.value.branchId;
             self.filterProps(data.value);
-            data.value.tradingFee = self.augur.getTradingFee(data.key);
             self.marketsInfo[branch] = self.marketsInfo[branch] || {};
             self.marketsInfo[branch][data.key] = data.value;
         }).on('error', (err) => {
@@ -81,12 +83,13 @@ module.exports = {
             if (err) return callback(err);
             self.db = null;
             self.dbMarketInfo = null;
+            self.dbMarketPriceHistory = null;
             self.marketsInfo = {};
             return callback(null);
         });
     },
 
-    remove: function (id, callback) {
+    removeMarketInfo: function (id, callback) {
         var self = this;
         if (!self.dbMarketInfo) return callback("db not found");
         if (!self.marketsInfo) return callback("marketsInfo not loaded");
@@ -141,6 +144,39 @@ module.exports = {
         });
     },
 
+    getMarketPriceHistory: function(id, options, callback){
+        var self = this;
+
+        if (!callback && self.augur.utils.is_function(options)) {
+            callback = options;
+            options = null;
+        }
+
+        if (!id) return callback("invalid market id");
+        if (!self.dbMarketInfo) return callback("Database not available");
+        
+        self.dbMarketPriceHistory.get(id, {valueEncoding: 'json'}, function (err, history) {
+            if (err) {
+                if (err.notFound) {return callback("id not found");}
+                return callback(err);
+            }
+            //return the whole thing
+            if (!options || !options['fromBlock'] || !options['toBlock']){
+                return callback(null, JSON.stringify(history));
+            }
+
+            var from = options.fromBlock || 0;
+            var to = options.toBlock || Number.MAX_VALUE;
+            //filter out blocks not in range.
+            for (var outcome in history) {
+                history[outcome] = history[outcome].filter(function (price){ 
+                    return price.blockNumber >= from && price.blockNumber <= to;
+                });
+            }
+            return callback(null, JSON.stringify(history));
+        });
+    },
+
     filterProps: function (doc){
         var self = this;
         for (var prop in doc) {
@@ -163,12 +199,22 @@ module.exports = {
             //Make a copy of object so we don't modify doc that was passed in.
             var cacheInfo = JSON.parse(JSON.stringify(market));
             self.filterProps(cacheInfo);
-            //trading generated, not stored on chain. We want to cache this.
-            cacheInfo.tradingFee = self.augur.getTradingFee(id);
             if (err) return callback("upsertMarket error:", err);
 
             self.marketsInfo[branch] = self.marketsInfo[branch] || {};
             self.marketsInfo[branch][id] = cacheInfo;
+            return callback(null);
+        });
+    },
+
+    upsertPriceHistory: function(id, priceHistory, callback){
+        var self = this;
+        callback = callback || noop;
+        if (!id) return callback ("upsertPriceHistory: id not found");
+        if (!self.db || !self.dbMarketPriceHistory) return callback("upsertPriceHistory: db not found");
+     
+        self.dbMarketPriceHistory.put(id, priceHistory, {valueEncoding: 'json'}, (err) => {
+            if (err) return callback("upsertPriceHistory error:", err);
             return callback(null);
         });
     },
@@ -197,7 +243,11 @@ module.exports = {
                             }
                             var marketInfo = self.augur.getMarketInfo(market);
                             if (marketInfo && !marketInfo.error){
-                                self.upsertMarketInfo(market, marketInfo)
+                                self.upsertMarketInfo(market, marketInfo);
+                            }
+                            var priceHistory = self.augur.getMarketPriceHistory(market);
+                            if (priceHistory){
+                                self.upsertPriceHistory(market, priceHistory)
                             }
                             numMarkets++;
                         }
@@ -241,8 +291,13 @@ module.exports = {
         function priceChanged(filtrate) {
             if (!filtrate) return;
             if (!filtrate['marketId']) return;
-            self.augur.getMarketInfo(filtrate['marketId'], (marketInfo) => {
-                self.upsertMarketInfo(filtrate['marketId'], marketInfo);
+            var id = filtrate['marketId'];
+            self.augur.getMarketInfo(id, (marketInfo) => {
+                self.upsertMarketInfo(id, marketInfo);
+            });
+
+            self.augur.getMarketPriceHistory(id, (history) => {
+                self.upsertPriceHistory(id, history);
             });
         }
 

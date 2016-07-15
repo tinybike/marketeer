@@ -9,7 +9,7 @@ var config = {
 
     http: "http://localhost:8545",
     ws: "http://127.0.0.1:8546",
-    leveldb: "./data/marketsdb",
+    leveldb: "./data/augur_cache_db",
     //ipc: process.env.GETH_IPC || join(DATADIR, "geth.ipc"),
     limit: null,
     filtering: true,
