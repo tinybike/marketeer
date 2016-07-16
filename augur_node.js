@@ -32,9 +32,9 @@ app.get('/getMarketsInfo', function (req, res) {
     var branch = req.query['branch'] || null;
     mark.getMarketsInfo(branch, function (err, markets){
         if (err){
-            res.status(500).send({ error: err });
+            return res.status(500).send({ error: err });
         }
-        res.send(markets);
+        return res.send(markets);
     });
 });
 
@@ -43,23 +43,60 @@ app.get('/getMarketInfo', function (req, res) {
     if (!id) res.status(500).send({ error: "You must specify an ID" });
     mark.getMarketInfo(id, function (err, market){
         if (err){
-            res.status(500).send({ error: err });
+            return res.status(500).send({ error: err });
         }
-        res.send(market);
+        return res.send(market);
     });
 });
 
 app.get('/batchGetMarketInfo', function (req, res) {
     var idsParam = req.query['ids'];
-    if (!idsParam) res.status(500).send({ error: "You must specify a list of ids" });
+    if (!idsParam) return res.status(500).send({ error: "You must specify a list of ids" });
     var ids = idsParam.split(',');
     mark.batchGetMarketInfo(ids, function (err, markets) {
         if (err){
-            res.status(500).send({ error: err });
+            return res.status(500).send({ error: err });
         }
-        res.send(markets);
+        return res.send(markets);
     });
 });
+
+app.get('/getMarketPriceHistory', function (req, res) {
+    var id = req.query['id'];
+    if (!id) res.status(500).send({ error: "You must specify an id" });
+
+    //optional params
+    var to = req.query['toBlock'];
+    var from = req.query['fromBlock'];
+
+    if (!to && !from){
+        mark.getMarketPriceHistory(id, function (err, history) {
+
+            if (err){
+                return res.status(500).send({ error: err });
+            }
+            return res.send(history);
+        });        
+    }else{
+        //if to/from aren't numbers, pass in null instaead
+        to = parseInt(to);
+        from = parseInt(from);
+        if (isNaN(to)) to = null;
+        if (isNaN(from)) from = null;
+
+        var options = {
+            toBlock: to,
+            fromBlock: from
+        }
+        mark.getMarketPriceHistory(id, options, function (err, history) {
+            if (err){
+                return res.status(500).send({ error: err });
+            }
+            return res.send(history);
+        });
+    }
+});
+
 
 function runserver(protocol, port) {
     app.listen(port, function() {

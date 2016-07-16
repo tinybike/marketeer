@@ -42,7 +42,6 @@ var removeDB = function (done){
     });   
 }
 
-
 //test market Data
 var doc1 = { network: '2',
   makerFee: '0.01',

@@ -161,12 +161,13 @@ module.exports = {
                 return callback(err);
             }
             //return the whole thing
-            if (!options || !options['fromBlock'] || !options['toBlock']){
+            if (!options || ( !options['fromBlock'] && !options['toBlock'])){
                 return callback(null, JSON.stringify(history));
             }
 
             var from = options.fromBlock || 0;
             var to = options.toBlock || Number.MAX_VALUE;
+
             //filter out blocks not in range.
             for (var outcome in history) {
                 history[outcome] = history[outcome].filter(function (price){ 
@@ -238,7 +239,7 @@ module.exports = {
                     async.each(markets, function (market, nextMarket){
                         //only do this if we haven't hit out market limit yet set in config.
                         if (numMarkets < config.limit) {
-                            if (++count%100==0){
+                            if (++count%25==0){
                                 console.log((count/markets.length*100).toFixed(2), "% complete");
                             }
                             var marketInfo = self.augur.getMarketInfo(market);
