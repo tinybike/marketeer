@@ -19,6 +19,7 @@ module.exports = {
     db: null,
     dbMarketInfo: null,
     dbMarketPriceHistory: null,
+    dbAccountTrades: null,
 
     marketsInfo: null,
     
@@ -40,6 +41,7 @@ module.exports = {
                     self.db = sublevel(db);
                     self.dbMarketInfo = self.db.sublevel('markets');
                     self.dbMarketPriceHistory = self.db.sublevel('pricehistory');
+                    self.dbAccountTrades = self.db.sublevel('accounttrades');
                     self.populateMarkets(self.dbMarketInfo, (err) => {
                         if (err) return callback(err);
                         return callback(null);
@@ -84,6 +86,7 @@ module.exports = {
             self.db = null;
             self.dbMarketInfo = null;
             self.dbMarketPriceHistory = null;
+            self.dbAccountTrades = null;
             self.marketsInfo = {};
             return callback(null);
         });
@@ -178,6 +181,50 @@ module.exports = {
         });
     },
 
+    getAccountTrades: function(account, options, callback){
+        var self = this;
+
+        if (!callback && self.augur.utils.is_function(options)) {
+            callback = options;
+            options = null;
+        }
+
+        if (!account) return callback("invalid account id");
+        if (!self.dbAccountTrades) return callback("Database not available");
+        
+        self.dbAccountTrades.get(account, {valueEncoding: 'json'}, function (err, trades) {
+            if (err) {
+                if (err.notFound) {return callback("account not found");}
+                return callback(err);
+            }
+            //return the whole thing
+            if (!options || ( !options['fromBlock'] && !options['toBlock'])){
+                return callback(null, JSON.stringify(trades));
+            }
+
+            var from = options.fromBlock || 0;
+            var to = options.toBlock || Number.MAX_VALUE;
+
+            //filter out blocks not in range.
+            for (var market in trades){
+               for (var outcome in trades[market]){
+                    trades[market][outcome] = trades[market][outcome].filter(function (price){ 
+                        return price.blockNumber >= from && price.blockNumber <= to;
+                    });
+                    //if no trades mmatch filter, delete outcome
+                    if (!trades[market][outcome].length){
+                        delete trades[market][outcome];
+                    }
+                }
+                //if no market has no outcomes that match filter, delete market.
+                if (Object.keys(trades[market]).length === 0){
+                    delete trades[market];
+                }
+            }
+            return callback(null, JSON.stringify(trades));
+        });
+    },
+
     filterProps: function (doc){
         var self = this;
         for (var prop in doc) {
@@ -220,17 +267,71 @@ module.exports = {
         });
     },
 
+     upsertAccountTrades: function(account, trades, callback){
+        var self = this;
+        callback = callback || noop;
+        if (!id) return callback ("upsertAccountTrades: account not found");
+        if (!self.db || !self.dbAccountTrades) return callback("upsertAccountTrades: db not found");
+     
+        self.dbAccountTrades.put(id, trades, {valueEncoding: 'json'}, (err) => {
+            if (err) return callback("upsertAccountTrades error:", err);
+            return callback(null);
+        });
+    },
+
+
+    //collects accounts from priceHistory objects.
+    getAccountsFromPriceHistory: function(priceHistory){
+        if (typeof priceHistory !== "object") return [];
+
+        var accounts = [];
+        for (var outcome in priceHistory){
+            accounts = accounts.concat(priceHistory[outcome].map( (item) => { 
+                return item.user; 
+            }));
+        }
+        return accounts;
+    },
+
     scan: function (config, callback) {
         var self = this;
+
+        function accountLoader(accounts, callback){
+            console.log("Loading Accounts");
+            if (!accounts|| accounts.constructor !== Array) return callback("array of accounts expected");
+            //quck and dirty dedup.
+            accounts = Array.from(new Set(accounts));
+
+            var count = 0;
+            async.each(accounts, (account, nextAccount) => {
+                if (++count%25==0){
+                    console.log((count/accounts.length*100).toFixed(2), "% complete");
+                }
+                self.augur.getAccountTrades(account, (trades) => {
+                    if (trades){
+                        self.upsertAccountTrades(account, trades);
+                        nextAccount();
+                    }else{
+                        nextAccount(); 
+                    }
+                });
+            }, (err) => {
+                if (err) return callback(err);
+                callback(null);
+            });
+        }
+
         config = config || {};
         callback = callback || noop;
         var numMarkets = 0;
-        //TODO: need to scan all branches?
+        var accounts = [];
+
         if (this.db && typeof this.db === "object" && 
             this.marketsInfo && typeof this.marketsInfo === "object") {
 
             config.limit = config.limit || Number.MAX_VALUE;
             var branches = self.augur.getBranches();
+            console.log("Loading Market Data and Price History");
             async.each(branches, function (branch, nextBranch){
                 if (numMarkets < config.limit) {
                     var markets = self.augur.getMarketsInBranch(branch);
@@ -248,7 +349,8 @@ module.exports = {
                             }
                             var priceHistory = self.augur.getMarketPriceHistory(market);
                             if (priceHistory){
-                                self.upsertPriceHistory(market, priceHistory)
+                                self.upsertPriceHistory(market, priceHistory);
+                                accounts = accounts.concat(self.getAccountsFromPriceHistory(priceHistory));
                             }
                             numMarkets++;
                         }
@@ -262,7 +364,11 @@ module.exports = {
                 }
             }, (err) => {
                 if (err) return callback(err);
-                callback(null, numMarkets);
+                //Load accountTrade info for accounts we scraped.
+                accountLoader(accounts, (err) => {
+                    if (err) return callback(err);
+                    callback(null, numMarkets);
+                })         
             });
 
         } else {
@@ -292,6 +398,7 @@ module.exports = {
         function priceChanged(filtrate) {
             if (!filtrate) return;
             if (!filtrate['marketId']) return;
+            if (!filtrate['trader']) return;
             var id = filtrate['marketId'];
             self.augur.getMarketInfo(id, (marketInfo) => {
                 self.upsertMarketInfo(id, marketInfo);
@@ -299,6 +406,11 @@ module.exports = {
 
             self.augur.getMarketPriceHistory(id, (history) => {
                 self.upsertPriceHistory(id, history);
+            });
+
+            var account = filtrate['trader'];
+            self.augur.getAccountTrades(account, (trades) => {
+                self.upsertAccountTrades(account, trades);
             });
         }
 
