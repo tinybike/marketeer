@@ -406,7 +406,6 @@ describe("getMarketPriceHistory", function (done){
 });
 
 
-
 describe("scan", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
@@ -447,8 +446,6 @@ describe("watch", function () {
 
     var branch, markets, marketId, outcome, amount, maxNumPolls;
 
-    config.limit=5;
-
     mark.augur.connect(config);
 
     var numMarkets = 0;
@@ -460,6 +457,8 @@ describe("watch", function () {
 
     it("does an initial market scan", function (done) {
         this.timeout(TIMEOUT*8);
+        config.limit = 5;
+        config.scan = true;
         mark.watch(config, function (err, updates) {
             assert.isNull(err);
             assert.isNull(mark.watcher);
@@ -473,6 +472,7 @@ describe("watch", function () {
     var branch = mark.augur.constants.DEFAULT_BRANCH_ID
 
     it("listens for market creation", function (done) {
+        config.scan = false;
         this.timeout(TIMEOUT*8);
         mark.watch(config, function (err, updates) {
             assert.isNull(err);
@@ -688,6 +688,6 @@ describe("watch", function () {
                 }); // createSingleEventMarket
             }, 2500); //setTimeout
         }); //watch
-    }); 
+    });
 });
 
