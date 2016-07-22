@@ -20,7 +20,7 @@ var TIMEOUT = 60000;
 var config = {
     http: "http://localhost:8545",
     ws: "ws://localhost:8546",
-    leveldb: "./testdb",
+    db: "./testdb",
     limit: 5,
     interval: null,
     scan: false,
@@ -28,7 +28,7 @@ var config = {
 };
 
 var makeDB = function (done) {
-    config.leveldb = crypto.randomBytes(4).toString("hex") + "testdb";
+    config.db = crypto.randomBytes(4).toString("hex") + "testdb";
     done();
 }
 
@@ -36,7 +36,7 @@ var makeDB = function (done) {
 var removeDB = function (done){
     mark.disconnect( (err) => {
         if (err) done(err);
-        leveldown.destroy(config.leveldb, (err) => {
+        leveldown.destroy(config.db, (err) => {
             if (err) console.log("Delete DB error:", err);
             done();
         });

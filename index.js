@@ -35,8 +35,8 @@ module.exports = {
         callback = callback || noop;
 
         self.augur.connect(config, () => {
-            if (config.leveldb){
-                levelup(config.leveldb, (err, db) => {
+            if (config.db){
+                levelup(config.db, (err, db) => {
                     if (err) return callback(err);
                     self.db = sublevel(db);
                     self.dbMarketInfo = self.db.sublevel('markets');
@@ -382,16 +382,11 @@ module.exports = {
         var self = this;
         config = config || {};
 
-        function marketCreated(filtrate) {
-            if (!filtrate) return;
-
-            for (var i = 0; i < filtrate.length; ++i){
-                var doc = filtrate[i];
-                if (!doc['data']) continue;
-                self.augur.getMarketInfo(doc['data'], (marketInfo) => {
-                    self.upsertMarketInfo(doc['data'], marketInfo);
-                });
-            }
+        function marketCreated(market) {
+            if (!market) return;
+            self.augur.getMarketInfo(market, (marketInfo) => {
+                self.upsertMarketInfo(market, marketInfo);
+            });
         }
 
         function priceChanged(filtrate) {
