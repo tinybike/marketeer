@@ -270,10 +270,10 @@ module.exports = {
      upsertAccountTrades: function(account, trades, callback){
         var self = this;
         callback = callback || noop;
-        if (!id) return callback ("upsertAccountTrades: account not found");
+        if (!account) return callback ("upsertAccountTrades: account not found");
         if (!self.db || !self.dbAccountTrades) return callback("upsertAccountTrades: db not found");
      
-        self.dbAccountTrades.put(id, trades, {valueEncoding: 'json'}, (err) => {
+        self.dbAccountTrades.put(account, trades, {valueEncoding: 'json'}, (err) => {
             if (err) return callback("upsertAccountTrades error:", err);
             return callback(null);
         });
@@ -398,8 +398,13 @@ module.exports = {
         function priceChanged(filtrate) {
             if (!filtrate) return;
             if (!filtrate['marketId']) return;
-            if (!filtrate['trader']) return;
+            if (!filtrate['maker']) return;
+            if (!filtrate['taker']) return;
+
             var id = filtrate['marketId'];
+            var maker = filtrate['maker'];
+            var taker = filtrate['taker'];
+
             self.augur.getMarketInfo(id, (marketInfo) => {
                 self.upsertMarketInfo(id, marketInfo);
             });
@@ -408,9 +413,12 @@ module.exports = {
                 self.upsertPriceHistory(id, history);
             });
 
-            var account = filtrate['trader'];
-            self.augur.getAccountTrades(account, (trades) => {
-                self.upsertAccountTrades(account, trades);
+            self.augur.getAccountTrades(maker, (trades) => {
+                self.upsertAccountTrades(maker, trades);
+            });
+
+            self.augur.getAccountTrades(taker, (trades) => {
+                self.upsertAccountTrades(taker, trades);
             });
         }
 
@@ -438,7 +446,7 @@ module.exports = {
             if (config.filtering) {
                 self.augur.filters.listen({
                     marketCreated: marketCreated,
-                    log_price: priceChanged,
+                    log_fill_tx: priceChanged
                 }, function (filters) {
                    pulseHelper();
                 });

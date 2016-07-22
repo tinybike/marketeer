@@ -19,6 +19,7 @@ var TIMEOUT = 60000;
 
 var config = {
     http: "http://localhost:8545",
+    ws: "ws://localhost:8546",
     leveldb: "./testdb",
     limit: 5,
     interval: null,
@@ -405,7 +406,7 @@ describe("getMarketPriceHistory", function (done){
     });
 });
 
-
+/*
 describe("scan", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
@@ -438,7 +439,7 @@ describe("scan", function () {
     });
 
 });
-
+*/
 
 describe("watch", function () {
     beforeEach(makeDB);
@@ -454,7 +455,7 @@ describe("watch", function () {
         numMarkets += mark.augur.getMarketsInBranch(branches[i]).length;
     }
     var expectedMarkets = numMarkets < config.limit ? numMarkets : config.limit;
-
+/*
     it("does an initial market scan", function (done) {
         this.timeout(TIMEOUT*8);
         config.limit = 5;
@@ -468,9 +469,9 @@ describe("watch", function () {
             mark.unwatch(done);
         });
     });
-
+*/
     var branch = mark.augur.constants.DEFAULT_BRANCH_ID
-
+/*
     it("listens for market creation", function (done) {
         config.scan = false;
         this.timeout(TIMEOUT*8);
@@ -560,7 +561,7 @@ describe("watch", function () {
             }, 2500);
         });
     });
-
+   */
     it("listens for price changes", function (done) {
         this.timeout(TIMEOUT*20);
         mark.watch(config, function (err, updates, data) {
@@ -604,6 +605,7 @@ describe("watch", function () {
                         var accounts = mark.augur.rpc.personal("listAccounts");
                         mark.augur.rpc.personal("unlockAccount", [accounts[0], "password"]);
                         mark.augur.useAccount(accounts[0]);
+                        console.log(accounts[0]);
                         mark.augur.buyCompleteSets({
                             market: id,
                             amount: 1,
@@ -621,6 +623,7 @@ describe("watch", function () {
                                     onSuccess: function (r) {
                                         mark.augur.rpc.personal("unlockAccount", [accounts[1], "password"]);
                                         mark.augur.useAccount(accounts[1]);
+                                        console.log(accounts[1]);
                                         mark.augur.get_trade_ids(id, function (trade_ids) {
                                             assert.isAbove(trade_ids.length, 0);
                                             var info = mark.augur.getMarketInfo(id);
@@ -689,5 +692,6 @@ describe("watch", function () {
             }, 2500); //setTimeout
         }); //watch
     });
+
 });
 
