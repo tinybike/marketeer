@@ -71,7 +71,6 @@ app.get('/getMarketPriceHistory', function (req, res) {
 
     if (!to && !from){
         mark.getMarketPriceHistory(id, function (err, history) {
-
             if (err){
                 return res.status(500).send({ error: err });
             }
@@ -93,6 +92,41 @@ app.get('/getMarketPriceHistory', function (req, res) {
                 return res.status(500).send({ error: err });
             }
             return res.send(history);
+        });
+    }
+});
+
+app.get('/getAccountTrades', function (req, res) {
+    var id = req.query['id'];
+    if (!id) res.status(500).send({ error: "You must specify an id" });
+
+    //optional params
+    var to = req.query['toBlock'];
+    var from = req.query['fromBlock'];
+
+    if (!to && !from){
+        mark.getAccountTrades(id, function (err, trades) {
+            if (err){
+                return res.status(500).send({ error: err });
+            }
+            return res.send(trades);
+        });        
+    }else{
+        //if to/from aren't numbers, pass in null instaead
+        to = parseInt(to);
+        from = parseInt(from);
+        if (isNaN(to)) to = null;
+        if (isNaN(from)) from = null;
+
+        var options = {
+            toBlock: to,
+            fromBlock: from
+        }
+        mark.getAccountTrades(id, options, function (err, trades) {
+            if (err){
+                return res.status(500).send({ error: err });
+            }
+            return res.send(trades);
         });
     }
 });
