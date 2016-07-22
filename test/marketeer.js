@@ -226,6 +226,57 @@ var history = { '1':
        blockNumber: 6 } ]
    };
 
+var account_trades = {
+  "1": {
+    "1": [
+      {
+        "type": 1,
+        "price": "0.01",
+        "shares": "1",
+        "trade_id": "1",
+        "blockNumber": 1,
+        "maker": false
+      }
+    ]
+  },
+  "2": {
+    "1": [
+      {
+        "type": 1,
+        "price": "0.01",
+        "shares": "1",
+        "trade_id": "2",
+        "blockNumber": 2,
+        "maker": false
+      }
+    ]
+  },
+  "3": {
+    "1": [
+      {
+        "type": 1,
+        "price": "0.01",
+        "shares": "1",
+        "trade_id": "3",
+        "blockNumber": 3,
+        "maker": false
+      }
+    ]
+  },
+  "4": {
+    "1": [
+      {
+        "type": 1,
+        "price": "0.01",
+        "shares": "1",
+        "trade_id": "4",
+        "blockNumber": 4,
+        "maker": false
+      }
+    ]
+  }
+};
+
 describe("getMarketInfo", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
@@ -406,7 +457,47 @@ describe("getMarketPriceHistory", function (done){
     });
 });
 
-/*
+describe("getAccountTrades", function (done){
+    beforeEach(makeDB);
+    afterEach(removeDB);
+
+    it("fetches trades with no options", function (done) {
+        this.timeout(TIMEOUT);
+        mark.connect(config, (err) => {
+            mark.upsertAccountTrades("A", account_trades, (err) => {
+                assert.isNull(err);
+                mark.getAccountTrades("A", function (err, value) {
+                    assert.isNull(err);
+                    var results = JSON.parse(value);
+                    assert.deepEqual(results, account_trades);
+                    done();
+                });
+            });
+        });
+    });
+
+    it("fetches history with options", function (done) {
+        this.timeout(TIMEOUT);
+        mark.connect(config, (err) => {
+            mark.upsertAccountTrades("A", account_trades, (err) => {
+                assert.isNull(err);
+                var options = {fromBlock: 2, toBlock: 3};
+                mark.getAccountTrades("A", options, function (err, value) {
+                    assert.isNull(err);
+                    var results = JSON.parse(value);
+                    assert.property(results, '2');
+                    assert.property(results, '3');
+                    assert.notProperty(results, '1');
+                    assert.notProperty(results, '4');
+                    done();
+                });
+            });
+        });
+    });
+
+});
+
+
 describe("scan", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
@@ -439,7 +530,6 @@ describe("scan", function () {
     });
 
 });
-*/
 
 describe("watch", function () {
     beforeEach(makeDB);
@@ -455,7 +545,7 @@ describe("watch", function () {
         numMarkets += mark.augur.getMarketsInBranch(branches[i]).length;
     }
     var expectedMarkets = numMarkets < config.limit ? numMarkets : config.limit;
-/*
+
     it("does an initial market scan", function (done) {
         this.timeout(TIMEOUT*8);
         config.limit = 5;
@@ -469,9 +559,9 @@ describe("watch", function () {
             mark.unwatch(done);
         });
     });
-*/
+
     var branch = mark.augur.constants.DEFAULT_BRANCH_ID
-/*
+
     it("listens for market creation", function (done) {
         config.scan = false;
         this.timeout(TIMEOUT*8);
@@ -561,7 +651,7 @@ describe("watch", function () {
             }, 2500);
         });
     });
-   */
+
     it("listens for price changes", function (done) {
         this.timeout(TIMEOUT*20);
         mark.watch(config, function (err, updates, data) {
@@ -623,7 +713,6 @@ describe("watch", function () {
                                     onSuccess: function (r) {
                                         mark.augur.rpc.personal("unlockAccount", [accounts[1], "password"]);
                                         mark.augur.useAccount(accounts[1]);
-                                        console.log(accounts[1]);
                                         mark.augur.get_trade_ids(id, function (trade_ids) {
                                             assert.isAbove(trade_ids.length, 0);
                                             var info = mark.augur.getMarketInfo(id);
@@ -693,5 +782,247 @@ describe("watch", function () {
         }); //watch
     });
 
+    it("updates price history", function (done) {
+        this.timeout(TIMEOUT*20);
+        mark.watch(config, function (err, updates, data) {
+            assert.isNull(err);
+            assert.isNull(mark.watcher);
+            assert.isNotNull(mark.augur.filters.filter.log_fill_tx.id);
+            setTimeout(function () {
+                var desc = Math.random().toString(36).substring(4);
+                var expDate = new Date("7/2/5099").getTime() / 1000;
+                var tags = ['a', 'b', 'c'];
+                console.log("creating:", {
+                    branchId: branch,
+                    description: desc,
+                    expDate: expDate,
+                    minValue: 1,
+                    maxValue: 2,
+                    numOutcomes: 2,
+                    makerFee: .002,
+                    takerFee: .05,
+                    tags: tags,
+                    extraInfo: "xtra",
+                    resolution: "generic",
+                });
+                mark.augur.createSingleEventMarket({
+                    branchId: branch,
+                    description: desc,
+                    expDate: expDate,
+                    minValue: 1,
+                    maxValue: 2,
+                    numOutcomes: 2,
+                    makerFee: ".002",
+                    takerFee: ".05",
+                    tags: tags,
+                    extraInfo: "xtra",
+                    resolution: "generic",
+                    onSent: function (r) {console.log("createSingleEventMarket sent:", r);},
+                    onSuccess: function (r) {
+                        console.log("createSingleEventMarket success:", r);
+                        assert.property(r, "marketID");
+                        var id = r["marketID"];
+                        var accounts = mark.augur.rpc.personal("listAccounts");
+                        mark.augur.rpc.personal("unlockAccount", [accounts[0], "password"]);
+                        mark.augur.useAccount(accounts[0]);
+                        console.log(accounts[0]);
+                        mark.augur.buyCompleteSets({
+                            market: id,
+                            amount: 1,
+                            onSent: function (r) {console.log("BuyCompleteSets Sent:", r);},
+                            onSuccess: function (r) {
+                                console.log("BuyCompleteSets Success:", r);
+                                mark.augur.sell({
+                                    amount: 1,
+                                    price: "0.01",
+                                    market: id,
+                                    outcome: "1",
+                                    onSent: function (r) {
+                                        console.log("Sell Sent:", r);
+                                    },
+                                    onSuccess: function (r) {
+                                        mark.augur.rpc.personal("unlockAccount", [accounts[1], "password"]);
+                                        mark.augur.useAccount(accounts[1]);
+                                        mark.augur.get_trade_ids(id, function (trade_ids) {
+                                            assert.isAbove(trade_ids.length, 0);
+                                            var trade_id = trade_ids[0];
+                                            mark.augur.trade({
+                                                max_value: 1,
+                                                max_amount: 1,
+                                                trade_ids: [trade_id],
+                                                onTradeHash: function (r) {console.log("tradeHash", r)},
+                                                onCommitSent: function (r) {console.log("commitSent", r)},
+                                                onCommitSuccess: function (r) {console.log("commitSuccess", r)},
+                                                onCommitFailed: function (r) {console.log("commitFailed", r)},
+                                                onTradeSuccess: function (r) {
+                                                    console.log("tradeSuccess", r);
+                                                    //may be a slight delay betwwen trade
+                                                    //and marketeer price history update. Retry this a few times.
+                                                    var maxTries = 10;
+                                                    var counter = 0;
+                                                    var timerId = setInterval( () => {
+                                                        console.log("try:", counter);
+                                                        mark.getMarketPriceHistory(id, (err, history) => {
+                                                            if (!err && history){
+                                                                clearInterval(timerId);
+                                                                mark.unwatch(done);
+                                                                return;
+                                                            }
+                                                            if (++counter >= maxTries){
+                                                                assert.fail(r, "No price history after trade.");
+                                                            }
+                                                        });
+                                                    }, 5000);
+                                                },
+                                                onTradeFailed: function (r) {
+                                                    console.log("tradeFailed", r);
+                                                    done();
+                                                }
+                                            }); //trade
+                                        });  //getTradeIds
+                                    },
+                                    onFailed: function (r){
+                                        console.log("Sell Failed:", r);
+                                        done();
+                                    }
+                                });
+                            },
+                            onFailed: function (r) {
+                                assert.fail(r, "BuyCompleteSets failure.");
+                                done();
+                            }
+                        }); //buyCompleteSets
+                    },
+                    onFailed: function (r) {
+                        assert.fail(r, "Market creation failure.");
+                        done();
+                    }
+                }); // createSingleEventMarket
+            }, 2500); //setTimeout
+        }); //watch
+    });
+
+    it("updates account trades", function (done) {
+        this.timeout(TIMEOUT*20);
+        mark.watch(config, function (err, updates, data) {
+            assert.isNull(err);
+            assert.isNull(mark.watcher);
+            assert.isNotNull(mark.augur.filters.filter.log_fill_tx.id);
+            setTimeout(function () {
+                var desc = Math.random().toString(36).substring(4);
+                var expDate = new Date("7/2/5099").getTime() / 1000;
+                var tags = ['a', 'b', 'c'];
+                console.log("creating:", {
+                    branchId: branch,
+                    description: desc,
+                    expDate: expDate,
+                    minValue: 1,
+                    maxValue: 2,
+                    numOutcomes: 2,
+                    makerFee: .002,
+                    takerFee: .05,
+                    tags: tags,
+                    extraInfo: "xtra",
+                    resolution: "generic",
+                });
+                mark.augur.createSingleEventMarket({
+                    branchId: branch,
+                    description: desc,
+                    expDate: expDate,
+                    minValue: 1,
+                    maxValue: 2,
+                    numOutcomes: 2,
+                    makerFee: ".002",
+                    takerFee: ".05",
+                    tags: tags,
+                    extraInfo: "xtra",
+                    resolution: "generic",
+                    onSent: function (r) {console.log("createSingleEventMarket sent:", r);},
+                    onSuccess: function (r) {
+                        console.log("createSingleEventMarket success:", r);
+                        assert.property(r, "marketID");
+                        var id = r["marketID"];
+                        var accounts = mark.augur.rpc.personal("listAccounts");
+                        mark.augur.rpc.personal("unlockAccount", [accounts[0], "password"]);
+                        mark.augur.useAccount(accounts[0]);
+                        console.log(accounts[0]);
+                        mark.augur.buyCompleteSets({
+                            market: id,
+                            amount: 1,
+                            onSent: function (r) {console.log("BuyCompleteSets Sent:", r);},
+                            onSuccess: function (r) {
+                                console.log("BuyCompleteSets Success:", r);
+                                mark.augur.sell({
+                                    amount: 1,
+                                    price: "0.01",
+                                    market: id,
+                                    outcome: "1",
+                                    onSent: function (r) {
+                                        console.log("Sell Sent:", r);
+                                    },
+                                    onSuccess: function (r) {
+                                        mark.augur.rpc.personal("unlockAccount", [accounts[1], "password"]);
+                                        mark.augur.useAccount(accounts[1]);
+                                        var tradingAccount = accounts[1];
+                                        mark.getAccountTrades(tradingAccount, (err, trades_begin) => {
+                                            mark.augur.get_trade_ids(id, function (trade_ids) {
+                                                assert.isAbove(trade_ids.length, 0);
+                                                var trade_id = trade_ids[0];
+                                                mark.augur.trade({
+                                                    max_value: 1,
+                                                    max_amount: 1,
+                                                    trade_ids: [trade_id],
+                                                    onTradeHash: function (r) {console.log("tradeHash", r)},
+                                                    onCommitSent: function (r) {console.log("commitSent", r)},
+                                                    onCommitSuccess: function (r) {console.log("commitSuccess", r)},
+                                                    onCommitFailed: function (r) {console.log("commitFailed", r)},
+                                                    onTradeSuccess: function (r) {
+                                                        console.log("tradeSuccess", r);
+                                                    //may be a slight delay betwwen trade
+                                                    //and marketeer price history update. Retry this a few times.
+                                                    var maxTries = 10;
+                                                    var counter = 0;
+                                                    var timerId = setInterval( () => {
+                                                        console.log("try:", counter);
+                                                        mark.getAccountTrades(tradingAccount, (err, trades_end) => {
+                                                            if (!err && trades_begin != trades_end){
+                                                                clearInterval(timerId);
+                                                                mark.unwatch(done);
+                                                                return;
+                                                            }
+                                                            if (++counter >= maxTries){
+                                                                assert.fail(r, "Account trades not updated after trade.");
+                                                            }
+                                                        });
+                                                    }, 5000);
+                                                },
+                                                onTradeFailed: function (r) {
+                                                    console.log("tradeFailed", r);
+                                                    done();
+                                                }
+                                                }); //trade
+                                            });  //getTradeIds
+                                        }); //getAccountTrades
+                                    },
+                                    onFailed: function (r){
+                                        console.log("Sell Failed:", r);
+                                        done();
+                                    }
+                                });
+                            },
+                            onFailed: function (r) {
+                                assert.fail(r, "BuyCompleteSets failure.");
+                                done();
+                            }
+                        }); //buyCompleteSets
+                    },
+                    onFailed: function (r) {
+                        assert.fail(r, "Market creation failure.");
+                        done();
+                    }
+                }); // createSingleEventMarket
+            }, 2500); //setTimeout
+        }); //watch
+    });
 });
 

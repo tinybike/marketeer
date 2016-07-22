@@ -279,7 +279,6 @@ module.exports = {
         });
     },
 
-
     //collects accounts from priceHistory objects.
     getAccountsFromPriceHistory: function(priceHistory){
         if (typeof priceHistory !== "object") return [];
