@@ -1024,5 +1024,6 @@ describe("watch", function () {
             }, 2500); //setTimeout
         }); //watch
     });
+
 });
 

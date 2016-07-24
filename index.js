@@ -35,6 +35,8 @@ module.exports = {
         callback = callback || noop;
 
         self.augur.connect(config, () => {
+            self.augur.rpc.debug.abi = true;
+            self.augur.rpc.debug.broadcast = true;
             if (config.db){
                 levelup(config.db, (err, db) => {
                     if (err) return callback(err);

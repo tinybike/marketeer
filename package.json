@@ -1,6 +1,6 @@
 {
   "name": "marketeer",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "Market monitor",
   "main": "index.js",
   "scripts": {
@@ -19,7 +19,7 @@
   "homepage": "https://github.com/AugurProject/marketeer#readme",
   "dependencies": {
     "async": "1.4.2",
-    "augur.js": "1.8.10",
+    "augur.js": "1.9.2",
     "augur-abi": "0.4.2",
     "levelup": "1.3.2",
     "leveldown": "1.4.6",
