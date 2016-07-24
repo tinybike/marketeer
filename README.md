@@ -1,11 +1,7 @@
 Marketeer
 =========
 
-[![Build Status](https://travis-ci.org/AugurProject/marketeer.svg)](https://travis-ci.org/AugurProject/marketeer)
-[![Coverage Status](https://coveralls.io/repos/AugurProject/marketeer/badge.svg?branch=master&service=github)](https://coveralls.io/github/AugurProject/marketeer?branch=master)
-[![npm version](https://badge.fury.io/js/marketeer.svg)](http://badge.fury.io/js/marketeer)
-
-Augur market monitor.
+Augur market monitor/cache.
 
 Installation
 ------------
@@ -17,21 +13,27 @@ Usage
 ```javascript
 var marketeer = require("marketeer");
 ```
-`marketeer.scan` fetches up-to-date data for all Augur markets from the Ethereum blockchain, and stores it in a MongoDB:
+`marketeer.scan` fetches up-to-date data for all Augur markets from the Ethereum blockchain, and stores it in levelDB:
 ```javascript
 var config = {
-    ethereum: "http://eth1.augur.net",
-    mongodb: "mongodb://localhost:27017/marketeer"
-};
+    http: "rpc_server url",          //specify at least 1 of http, ws, or ipc
+    ws: "websocket server url",
+    ipc: "path to geth.ipc",
+    db: "./path_to_db",              //will be created automatically if doesn't exist already
+    limit: null,                     //How many markets to fetch (null for all)
+    filtering: true,                 //Listen for new markets, price changes, etc? (only used with watch)
+    interval: null,                  //Rescan peridoically? (in ms)
+    scan: true,                      //Scan blockchain for markets on startup?
+}
 marketeer.scan(config, function (err, numUpdates) {
     if (err) throw err;
     console.log("Oh happy day!", numUpdates, "markets have been updated!");
     // fun times here
 });
 ```
-If you only want the most recently-created markets, use the `config.limit` option.  For example, to only scan the five most recent markets, set `config.limit = 5`.
 
-`marketeer.watch` creates a persistent blockchain listener, which does a market information `scan` periodically.  (The default is every 10 minutes; this can be modified by editing `config.interval`.)  If you set `config.filtering = true`, it will also create contracts, price and creation filters which listen for Augur contract transactions, updates to market prices, and market creation events, respectively.  It then collects the most recent info for markets which show up in the filter(s).
+`marketeer.watch` creates a persistent blockchain listener.
+
 ```javascript
 marketeer.watch(config, function (err, numUpdates, data) {
     if (err) throw err;
@@ -39,9 +41,45 @@ marketeer.watch(config, function (err, numUpdates, data) {
     // fun times here
 });
 ```
-`marketeer.unwatch` stops watching the blockchain, removes the price filter, and closes the database connection.
+
+`marketeer.unwatch` stops watching the blockchain, removes the filters, and closes the database connection.
+
+APIs
+-----
+```javascript
+//returns marketInfo for a single market
+marketeer.getMarketInfo(id, function (err, market){ ... });
+```
+```javascript
+//returns basic market info for all markets in a branch
+marketeer.getMarketsInfo(branch, function (err, markets){ ... });
+```
+```javascript
+//retuns full market data for an array of market ids
+marketeer.batchGetMarketInfo(ids, function (err, markets) { ... });
+```
+```javascript
+var options = {
+    toBlock: blockNumber
+    fromBlock: blockNumber
+}
+//returns price history for a single market
+//options is an optional param. w/o it, returns price history for all blocks
+marketeer.getMarketPriceHistory(id, options, function (err, history) { ... });
+```
+```javascript
+var options = {
+    toBlock: blockNumber
+    fromBlock: blockNumber
+}
+//returns trade history for a single user
+//options is an optional param. w/o it, returns trade history for all blocks
+marketeer.getAccountTrades(id, options, function (err, trades) { ... });
+```
 
 Tests
 -----
+These tests require two geth testnet accounts funded with cash and testnet ether, as they simulate trading back and forth to test marketeer's listeners.
+
 
     $ npm test
