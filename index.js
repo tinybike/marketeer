@@ -14,7 +14,7 @@ var noop = function () {};
 
 module.exports = {
 
-    debug: false,
+    debug: true,
 
     db: null,
     dbMarketInfo: null,
@@ -36,7 +36,7 @@ module.exports = {
 
         self.augur.connect(config, () => {
             self.augur.rpc.debug.abi = true;
-            self.augur.rpc.debug.broadcast = true;
+            //self.augur.rpc.debug.broadcast = true;
             if (config.db){
                 levelup(config.db, (err, db) => {
                     if (err) return callback(err);
@@ -238,9 +238,11 @@ module.exports = {
 
     upsertMarketInfo: function(id, market, callback){
         var self = this;
+        if (self.debug) console.log("upsertMarketInfo:", id, market);
         callback = callback || noop;
         if (!id) return callback ("upsertMarketInfo: id not found");
         if (!self.db || !self.dbMarketInfo) return callback("upsertMarketInfo: db not found");
+        if (!market) return callback("upsertMarketInfo: market data not found");
         if (!market.branchId) return callback("upsertMarketInfo: branchId not found in market data");
 
         var branch = market.branchId;
@@ -385,13 +387,16 @@ module.exports = {
         config = config || {};
 
         function marketCreated(market) {
+            if (self.debug) console.log("marketCreated filter:", market);
             if (!market) return;
             self.augur.getMarketInfo(market, (marketInfo) => {
+                if (self.debug) console.log("marketCreated filter info:", market, marketInfo);
                 self.upsertMarketInfo(market, marketInfo);
             });
         }
 
         function priceChanged(filtrate) {
+            if (self.debug) console.log("priceChanged filter:", filtrate);
             if (!filtrate) return;
             if (!filtrate['marketId']) return;
             if (!filtrate['maker']) return;
@@ -402,6 +407,7 @@ module.exports = {
             var taker = filtrate['taker'];
 
             self.augur.getMarketInfo(id, (marketInfo) => {
+                if (self.debug) console.log("priceChanged market info:", marketInfo);
                 self.upsertMarketInfo(id, marketInfo);
             });
 
@@ -460,6 +466,7 @@ module.exports = {
                 function syncWait() {
                     var syncing = self.augur.rpc.eth("syncing");
                     var peers = parseInt(self.augur.rpc.net("peerCount"));
+                    if (self.debug) console.log("syncWait:", syncing, peers);
                     if (!peers){
                         console.log("Waiting for peers");
                         setTimeout(syncWait, 30000);

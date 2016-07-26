@@ -782,6 +782,7 @@ describe("watch", function () {
         }); //watch
     });
 
+
     it("updates price history", function (done) {
         this.timeout(TIMEOUT*20);
         mark.watch(config, function (err, updates, data) {
