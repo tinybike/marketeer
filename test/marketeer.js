@@ -545,6 +545,7 @@ describe("watch", function () {
         numMarkets += mark.augur.getMarketsInBranch(branches[i]).length;
     }
     var expectedMarkets = numMarkets < config.limit ? numMarkets : config.limit;
+     var branch = mark.augur.constants.DEFAULT_BRANCH_ID
 
     it("does an initial market scan", function (done) {
         this.timeout(TIMEOUT*8);
@@ -560,8 +561,6 @@ describe("watch", function () {
         });
     });
 
-    var branch = mark.augur.constants.DEFAULT_BRANCH_ID
-
     it("listens for market creation", function (done) {
         config.scan = false;
         this.timeout(TIMEOUT*8);
@@ -574,19 +573,6 @@ describe("watch", function () {
                 var desc = Math.random().toString(36).substring(4);
                 var expDate = new Date("7/2/5099").getTime() / 1000;
                 var tags = ['a', 'b', 'c'];
-                console.log("creating:", {
-                    branchId: branch,
-                    description: desc,
-                    expDate: expDate,
-                    minValue: 1,
-                    maxValue: 2,
-                    numOutcomes: 2,
-                    makerFee: .002,
-                    takerFee: .05,
-                    tags: tags,
-                    extraInfo: "xtra",
-                    resolution: "generic",
-                });
                 mark.augur.createSingleEventMarket({
                     branchId: branch,
                     description: desc,
@@ -662,19 +648,6 @@ describe("watch", function () {
                 var desc = Math.random().toString(36).substring(4);
                 var expDate = new Date("7/2/5099").getTime() / 1000;
                 var tags = ['a', 'b', 'c'];
-                console.log("creating:", {
-                    branchId: branch,
-                    description: desc,
-                    expDate: expDate,
-                    minValue: 1,
-                    maxValue: 2,
-                    numOutcomes: 2,
-                    makerFee: .002,
-                    takerFee: .05,
-                    tags: tags,
-                    extraInfo: "xtra",
-                    resolution: "generic",
-                });
                 mark.augur.createSingleEventMarket({
                     branchId: branch,
                     description: desc,
@@ -793,19 +766,6 @@ describe("watch", function () {
                 var desc = Math.random().toString(36).substring(4);
                 var expDate = new Date("7/2/5099").getTime() / 1000;
                 var tags = ['a', 'b', 'c'];
-                console.log("creating:", {
-                    branchId: branch,
-                    description: desc,
-                    expDate: expDate,
-                    minValue: 1,
-                    maxValue: 2,
-                    numOutcomes: 2,
-                    makerFee: .002,
-                    takerFee: .05,
-                    tags: tags,
-                    extraInfo: "xtra",
-                    resolution: "generic",
-                });
                 mark.augur.createSingleEventMarket({
                     branchId: branch,
                     description: desc,
@@ -913,19 +873,6 @@ describe("watch", function () {
                 var desc = Math.random().toString(36).substring(4);
                 var expDate = new Date("7/2/5099").getTime() / 1000;
                 var tags = ['a', 'b', 'c'];
-                console.log("creating:", {
-                    branchId: branch,
-                    description: desc,
-                    expDate: expDate,
-                    minValue: 1,
-                    maxValue: 2,
-                    numOutcomes: 2,
-                    makerFee: .002,
-                    takerFee: .05,
-                    tags: tags,
-                    extraInfo: "xtra",
-                    resolution: "generic",
-                });
                 mark.augur.createSingleEventMarket({
                     branchId: branch,
                     description: desc,
@@ -1026,5 +973,80 @@ describe("watch", function () {
         }); //watch
     });
 
+    it("listens for fee update", function (done) {
+        config.scan = false;
+        this.timeout(TIMEOUT*8);
+        mark.watch(config, function (err, updates) {
+            assert.isNull(err);
+            assert.isNull(mark.watcher);
+            assert.isNotNull(mark.augur.filters.filter.tradingFeeUpdated.id);
+
+            setTimeout(function () {
+                var desc = Math.random().toString(36).substring(4);
+                var expDate = new Date("7/2/5099").getTime() / 1000;
+                var tags = ['a', 'b', 'c'];
+                var makerFee = ".02";
+                var takerFee = ".05";
+                mark.augur.createSingleEventMarket({
+                    branchId: branch,
+                    description: desc,
+                    expDate: expDate,
+                    minValue: 1,
+                    maxValue: 2,
+                    numOutcomes: 2,
+                    makerFee: makerFee,
+                    takerFee: takerFee,
+                    tags: tags,
+                    extraInfo: "xtra",
+                    resolution: "generic",
+                    onSent: function (r) {
+                    console.log("createSingleEventMarket sent:", r);
+                        assert.property(r, "txHash");
+                        assert.property(r, "callReturn");
+                    },
+                    onSuccess: function (r) {
+                        console.log("createSingleEventMarket success:", r);
+                        var maxTries = 10;
+                        var counter = 0;
+                        var id = r["marketID"];
+                        mark.augur.updateTradingFee({
+                            branchId: branch,
+                            market: id,
+                            makerFee: ".019", 
+                            takerFee: ".049",
+                            onSent: function (r) { console.log("updateTradingFee sent:", r); },
+                            onSuccess: function (r) { 
+                                console.log("updateTradingFee success:", r);
+                                //may be a slight delay betwwen market creation
+                                //and marketeer update. Retry this a few times.
+                                var timerId = setInterval( () => {
+                                    console.log("try:", counter);
+                                    mark.getMarketInfo(id, (err, market) => {
+                                        if (!err && market['makerFee'] != makerFee && market['takerFee'] != takerFee){
+                                            mark.unwatch(done);
+                                            clearInterval(timerId);
+                                            return;
+                                        }
+                                        if (++counter >= maxTries){
+                                            assert.fail(r, "Fee Update not seen by watch.");
+                                        }
+                                    });
+                                }, 5000);
+                            },
+                            onFailed: function (r) { 
+                                assert.fail(r, "Fee update failure.");
+                                done();
+                            }
+                        });
+                    },
+                    onFailed: function (r) {
+                        assert.fail(r, "Market creation failure.");
+                        done();
+                    }
+                }); // createSingleEventMarket
+            }, 2500);
+        });
+    });
+ 
 });
 

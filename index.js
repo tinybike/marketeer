@@ -424,6 +424,18 @@ module.exports = {
             });
         }
 
+        function feeChanged(filtrate) {
+            if (self.debug) console.log("feeChanged filter:", filtrate);
+            if (!filtrate) return;
+            if (!filtrate['marketId']) return;
+            var id = filtrate['marketId'];
+
+            self.augur.getMarketInfo(id, (marketInfo) => {
+                if (self.debug) console.log("feeChanged market info:", marketInfo);
+                self.upsertMarketInfo(id, marketInfo);
+            });
+        }
+
         function doneSyncing(){
 
             function pulseHelper(){
@@ -448,7 +460,8 @@ module.exports = {
             if (config.filtering) {
                 self.augur.filters.listen({
                     marketCreated: marketCreated,
-                    log_fill_tx: priceChanged
+                    log_fill_tx: priceChanged,
+                    tradingFeeUpdated: feeChanged
                 }, function (filters) {
                    pulseHelper();
                 });
