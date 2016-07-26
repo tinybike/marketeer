@@ -480,7 +480,7 @@ module.exports = {
                             setTimeout(syncWait, 30000);
                         }
                     } catch (e) {
-                        console.log("RPC error", e);
+                        console.log("RPC error", e.toString());
                         setTimeout(syncWait, 30000);
                     }
                 }
