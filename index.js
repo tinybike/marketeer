@@ -9,7 +9,6 @@ var async = require("async");
 var levelup = require('levelup');
 var sublevel = require('level-sublevel')
 
-var INTERVAL = 600000; // default update interval (10 minutes)
 var noop = function () {};
 
 module.exports = {
@@ -438,35 +437,30 @@ module.exports = {
 
         function doneSyncing(){
 
-            function pulseHelper(){
+            function scanHelper(){
                 if (!config.scan) {
                     if (callback) callback(null, 0);
                 }else{
-                    (function pulse() {
-                        self.scan(config, (err, updates, markets) => {
-                            if (callback) {
-                                if (err) return callback(err);
-                                callback(null, updates);
-                            }
-                        });
-                        if (config.interval) {
-                            self.watcher = setTimeout(pulse, config.interval || INTERVAL);
+                    self.scan(config, (err, updates, markets) => {
+                        if (callback) {
+                            if (err) return callback(err);
+                            callback(null, updates);
                         }
-                    })();
+                    });
                 }
             }
 
-            //if we are filtering, delay watch callback/scan pulsing until filters are set up
+            //if we are filtering, delay watch callback/scan until filters are set up
             if (config.filtering) {
                 self.augur.filters.listen({
                     marketCreated: marketCreated,
                     log_fill_tx: priceChanged,
                     tradingFeeUpdated: feeChanged
                 }, function (filters) {
-                   pulseHelper();
+                   scanHelper();
                 });
             }else{
-                pulseHelper();
+                scanHelper();
             }
         }
 
