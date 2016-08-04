@@ -386,8 +386,8 @@ module.exports = {
         config = config || {};
 
         function marketCreated(market) {
-            if (self.debug) console.log("marketCreated filter:", market);
             if (!market) return;
+            if (self.debug) console.log("marketCreated filter:", market);
             self.augur.getMarketInfo(market, (marketInfo) => {
                 if (self.debug) console.log("marketCreated filter info:", market, marketInfo);
                 self.upsertMarketInfo(market, marketInfo);
@@ -395,8 +395,8 @@ module.exports = {
         }
 
         function priceChanged(filtrate) {
-            if (self.debug) console.log("priceChanged filter:", filtrate);
             if (!filtrate) return;
+            if (self.debug) console.log("priceChanged filter:", filtrate);
             if (!filtrate['marketId']) return;
             if (!filtrate['maker']) return;
             if (!filtrate['taker']) return;
