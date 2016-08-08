@@ -535,7 +535,7 @@ describe("watch", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
 
-    var branch, markets, marketId, outcome, amount, maxNumPolls;
+    var branch, markets, outcome, amount, maxNumPolls;
 
     mark.augur.connect(config);
 

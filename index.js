@@ -397,11 +397,11 @@ module.exports = {
         function priceChanged(filtrate) {
             if (!filtrate) return;
             if (self.debug) console.log("priceChanged filter:", filtrate);
-            if (!filtrate['marketId']) return;
+            if (!filtrate['market']) return;
             if (!filtrate['maker']) return;
             if (!filtrate['taker']) return;
 
-            var id = filtrate['marketId'];
+            var id = filtrate['market'];
             var maker = filtrate['maker'];
             var taker = filtrate['taker'];
 
@@ -426,8 +426,8 @@ module.exports = {
         function feeChanged(filtrate) {
             if (self.debug) console.log("feeChanged filter:", filtrate);
             if (!filtrate) return;
-            if (!filtrate['marketId']) return;
-            var id = filtrate['marketId'];
+            if (!filtrate['marketID']) return;
+            var id = filtrate['marketID'];
 
             self.augur.getMarketInfo(id, (marketInfo) => {
                 if (self.debug) console.log("feeChanged market info:", marketInfo);
