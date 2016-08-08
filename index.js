@@ -457,7 +457,8 @@ module.exports = {
                     log_fill_tx: priceChanged,
                     tradingFeeUpdated: feeChanged
                 }, function (filters) {
-                   scanHelper();
+                    if (self.debug) console.log(filters);
+                    scanHelper();
                 });
             }else{
                 scanHelper();
