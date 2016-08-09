@@ -13,7 +13,7 @@ var noop = function () {};
 
 module.exports = {
 
-    debug: true,
+    debug: false,
 
     db: null,
     dbMarketInfo: null,
@@ -296,83 +296,106 @@ module.exports = {
     },
 
     scan: function (config, callback) {
+
         var self = this;
-
-        function accountLoader(accounts, callback){
-            console.log("Loading Accounts");
-            if (!accounts|| accounts.constructor !== Array) return callback("array of accounts expected");
-            //quck and dirty dedup.
-            accounts = Array.from(new Set(accounts));
-
-            var count = 0;
-            async.each(accounts, (account, nextAccount) => {
-                if (++count%25==0){
-                    console.log((count/accounts.length*100).toFixed(2), "% complete");
-                }
-                self.augur.getAccountTrades(account, (trades) => {
-                    if (trades){
-                        self.upsertAccountTrades(account, trades);
-                        nextAccount();
+        var accounts = [];
+        var numMarkets = 0;
+        
+        function loadMarket(data, callback) {
+            if (data.status) console.log(data.status);
+            var marketInfo = self.augur.getMarketInfo(data.id);
+            if (marketInfo && !marketInfo.error){
+                self.upsertMarketInfo(market, marketInfo, (err) => {
+                    if (err) return callback(err);
+                    var priceHistory = self.augur.getMarketPriceHistory(data.id);
+                    if (priceHistory){
+                        self.upsertPriceHistory(market, priceHistory, (err) => {
+                            if (err) return callback(err);
+                            accounts = accounts.concat(self.getAccountsFromPriceHistory(priceHistory));
+                            return callback(null);
+                        });   
                     }else{
-                        nextAccount(); 
+                        return callback(null);
                     }
                 });
-            }, (err) => {
-                if (err) return callback(err);
-                callback(null);
+            }else {
+                return callback("error loading markets");
+            } 
+        }
+
+        function loadAccount(data, callback) {
+            if (data.status) console.log(data.status);
+            self.augur.getAccountTrades(data.account, (trades) => {
+                if (trades){
+                    self.upsertAccountTrades(data.account, trades, (err) => {
+                        if (err) return callback(err);
+                        return callback(null);
+                    });
+                }else{
+                    return callback(null);
+                }
             });
+
+        }
+
+        var marketQueue = async.queue(loadMarket, 1);
+        var accountQueue = async.queue(loadAccount, 1);
+
+        // called when all items in queue have been processed
+        marketQueue.drain = function() {
+            console.log('Done loading Markets');
+            console.log("Loading Accounts");
+
+            accounts = Array.from(new Set(accounts));
+            if (!accounts.length) return callback(null, numMarkets);
+
+            for (var i = 0; i < accounts.length; i++) {
+                var account = accounts[i];
+                var status = null;
+                if (j%25==0){
+                    status = (j/accounts.length*100).toFixed(2) + " % complete";
+                }
+                accountQueue.push({account: account, status: status}, function(err){
+                    if (err) return callback(err);
+                });
+            }      
+        }
+
+        accountQueue.drain = function() {
+            console.log('Done loading Accounts');
+            return callback(null, numMarkets);
         }
 
         config = config || {};
         callback = callback || noop;
-        var numMarkets = 0;
-        var accounts = [];
 
+        
         if (this.db && typeof this.db === "object" && 
             this.marketsInfo && typeof this.marketsInfo === "object") {
 
             config.limit = config.limit || Number.MAX_VALUE;
             var branches = self.augur.getBranches();
             console.log("Loading Market Data and Price History");
-            async.each(branches, function (branch, nextBranch){
-                if (numMarkets < config.limit) {
-                    var markets = self.augur.getMarketsInBranch(branch);
-                    console.log("Loading", markets.length, "markets from branch", branch);
-                    var count = 0;
-                    async.each(markets, function (market, nextMarket){
-                        //only do this if we haven't hit out market limit yet set in config.
-                        if (numMarkets < config.limit) {
-                            if (++count%25==0){
-                                console.log((count/markets.length*100).toFixed(2), "% complete");
-                            }
-                            var marketInfo = self.augur.getMarketInfo(market);
-                            if (marketInfo && !marketInfo.error){
-                                self.upsertMarketInfo(market, marketInfo);
-                            }
-                            var priceHistory = self.augur.getMarketPriceHistory(market);
-                            if (priceHistory){
-                                self.upsertPriceHistory(market, priceHistory);
-                                accounts = accounts.concat(self.getAccountsFromPriceHistory(priceHistory));
-                            }
-                            numMarkets++;
-                        }
-                        nextMarket();
-                    }, (err) => {
-                        if (err) return nextBranch(err);
-                        nextBranch();
+            for (var i = 0; i < branches.length; i++) {
+                if (numMarkets >= config.limit) continue;
+                var branch = branches[i];
+                var markets = self.augur.getMarketsInBranch(branch);
+                for (var j = 0; j < markets.length; j++) {
+                    if (numMarkets >= config.limit) continue;
+                    var market = markets[j];
+                    //print some occasional status info
+                    var status = null;
+                    if (j==0){
+                        status = "Loading " + markets.length + " markets from branch " + branch;
+                    }else if (j%25==0){
+                        status = (j/markets.length*100).toFixed(2) + " % complete";
+                    }
+                    marketQueue.push({id: market, status: status}, function(err) {
+                        if (err) return callback(err);
                     });
-                }else{
-                    nextBranch(); //skips to next branch if market limit already hit.
+                    numMarkets++;
                 }
-            }, (err) => {
-                if (err) return callback(err);
-                //Load accountTrade info for accounts we scraped.
-                accountLoader(accounts, (err) => {
-                    if (err) return callback(err);
-                    callback(null, numMarkets);
-                })         
-            });
-
+            }
         } else {
             this.connect(config, (err) => {
                 if (err) return callback(err);
@@ -381,6 +404,7 @@ module.exports = {
         }
     },
 
+    
     watch: function (config, callback) {
         var self = this;
         config = config || {};
