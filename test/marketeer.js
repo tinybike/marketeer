@@ -19,7 +19,7 @@ var TIMEOUT = 60000;
 
 var config = {
     http: "http://localhost:8545",
-    ws: "ws://localhost:8546",
+    ws: null,
     db: "./testdb",
     limit: 5,
     interval: null,

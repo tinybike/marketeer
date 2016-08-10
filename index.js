@@ -338,8 +338,8 @@ module.exports = {
 
         }
 
-        var marketQueue = async.queue(loadMarket, 1);
-        var accountQueue = async.queue(loadAccount, 1);
+        var marketQueue = async.queue(loadMarket, 2);
+        var accountQueue = async.queue(loadAccount, 2);
 
         // called when all items in queue have been processed
         marketQueue.drain = function() {
@@ -409,12 +409,15 @@ module.exports = {
         var self = this;
         config = config || {};
 
-        function marketCreated(market) {
-            if (!market) return;
-            if (self.debug) console.log("marketCreated filter:", market);
-            self.augur.getMarketInfo(market, (marketInfo) => {
-                if (self.debug) console.log("marketCreated filter info:", market, marketInfo);
-                self.upsertMarketInfo(market, marketInfo);
+        function marketCreated(filtrate) {
+            if (!filtrate) return;
+            if (!filtrate.marketID) return;
+            var id = filtrate.marketID;
+            if (self.debug) console.log("marketCreated filter:", id);
+            self.augur.getMarketInfo(id, (marketInfo) => {
+                console.log("info", id, marketInfo);
+                if (self.debug) console.log("marketCreated filter info:", id, marketInfo);
+                self.upsertMarketInfo(id, marketInfo);
             });
         }
 
