@@ -13,7 +13,7 @@ var noop = function () {};
 
 module.exports = {
 
-    debug: false,
+    debug: true,
 
     db: null,
     dbMarketInfo: null,
@@ -304,12 +304,14 @@ module.exports = {
         function loadMarket(data, callback) {
             if (data.status) console.log(data.status);
             var marketInfo = self.augur.getMarketInfo(data.id);
+
             if (marketInfo && !marketInfo.error){
-                self.upsertMarketInfo(market, marketInfo, (err) => {
+                self.upsertMarketInfo(data.id, marketInfo, (err) => {
+                    
                     if (err) return callback(err);
                     var priceHistory = self.augur.getMarketPriceHistory(data.id);
                     if (priceHistory){
-                        self.upsertPriceHistory(market, priceHistory, (err) => {
+                        self.upsertPriceHistory(data.id, priceHistory, (err) => {
                             if (err) return callback(err);
                             accounts = accounts.concat(self.getAccountsFromPriceHistory(priceHistory));
                             return callback(null);
