@@ -409,9 +409,6 @@ module.exports = {
                 var branch = branches[i];
                 var markets = self.augur.getMarketsInBranch(branch);
                 for (var j = 0; j < markets.length; j++) {
-                    if (market == '0xb184d99a492a24f708ac8104b9e21aaafcf0c44f5212defcdc1ce2bce57a8e8'){
-                        console.log("found it", market);
-                    }
                     if (numMarkets >= config.limit) continue;
                     var market = markets[j];
                     //print some occasional status info
