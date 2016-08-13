@@ -28,6 +28,7 @@ module.exports = {
 
     //List of market properties to cache
     marketProps: {tradingPeriod:1, tradingFee:1, creationTime:1, volume:1, tags:1, endDate:1, description:1, makerFee:1, takerFee:1},
+    idRegex: /^(0x)(0*)(.*)/,
 
     connect: function (config, callback) {
         var self = this;
@@ -35,6 +36,7 @@ module.exports = {
 
         self.augur.connect(config, () => {
             self.augur.rpc.debug.abi = true;
+            self.augur.rpc.retryDroppedTxs = true;
             //self.augur.rpc.debug.broadcast = true;
             if (config.db){
                 levelup(config.db, (err, db) => {
@@ -50,6 +52,19 @@ module.exports = {
                 });
             }
         });
+    },
+
+    //some ids returned from filters with leading 0s. This removes them
+    //e.g, 0x0a12345 => 0x12345
+    normalizeId: function (id){
+        var self = this;
+
+        if (!id) return null;
+        var m;
+        if ((m = self.idRegex.exec(id)) !== null) {
+            return (m[1]+m[3]);
+        }
+        return null;
     },
 
     //deserialize db into memory
@@ -95,6 +110,8 @@ module.exports = {
 
     removeMarketInfo: function (id, callback) {
         var self = this;
+        id = normalizeId(id);
+        if (!id) return callback("no market specified");
         if (!self.dbMarketInfo) return callback("db not found");
         if (!self.marketsInfo) return callback("marketsInfo not loaded");
         
@@ -109,6 +126,7 @@ module.exports = {
     // select market using market ID
     getMarketInfo: function (id, callback) {
         var self = this;
+        id = self.normalizeId(id);
         if (!id) return callback("no market specified");
         if (!self.dbMarketInfo) return callback("Database not available");
 
@@ -137,6 +155,7 @@ module.exports = {
 
         var info = {};
         async.each(ids, function (id, nextID){
+            id = self.normalizeId(id);
             self.dbMarketInfo.get(id, {valueEncoding: 'json'}, function (err, value) {
                 //skip invalid ids
                 if (!err) { info[id] = value };
@@ -156,6 +175,7 @@ module.exports = {
             options = null;
         }
 
+        id = self.normalizeId(id);
         if (!id) return callback("invalid market id");
         if (!self.dbMarketInfo) return callback("Database not available");
         
@@ -190,6 +210,7 @@ module.exports = {
             options = null;
         }
 
+        account = self.normalizeId(account);
         if (!account) return callback("invalid account id");
         if (!self.dbAccountTrades) return callback("Database not available");
         
@@ -239,6 +260,7 @@ module.exports = {
         var self = this;
         if (self.debug) console.log("upsertMarketInfo:", id, market);
         callback = callback || noop;
+        id = self.normalizeId(id);
         if (!id) return callback ("upsertMarketInfo: id not found");
         if (!self.db || !self.dbMarketInfo) return callback("upsertMarketInfo: db not found");
         if (!market) return callback("upsertMarketInfo: market data not found");
@@ -261,6 +283,7 @@ module.exports = {
     upsertPriceHistory: function(id, priceHistory, callback){
         var self = this;
         callback = callback || noop;
+        id = self.normalizeId(id);
         if (!id) return callback ("upsertPriceHistory: id not found");
         if (!self.db || !self.dbMarketPriceHistory) return callback("upsertPriceHistory: db not found");
      
@@ -273,9 +296,12 @@ module.exports = {
      upsertAccountTrades: function(account, trades, callback){
         var self = this;
         callback = callback || noop;
+        account = self.normalizeId(account);
         if (!account) return callback ("upsertAccountTrades: account not found");
         if (!self.db || !self.dbAccountTrades) return callback("upsertAccountTrades: db not found");
      
+        if (self.debug) console.log("upsertAccountTrades:", account, trades);
+
         self.dbAccountTrades.put(account, trades, {valueEncoding: 'json'}, (err) => {
             if (err) return callback("upsertAccountTrades error:", err);
             return callback(null);
@@ -383,6 +409,9 @@ module.exports = {
                 var branch = branches[i];
                 var markets = self.augur.getMarketsInBranch(branch);
                 for (var j = 0; j < markets.length; j++) {
+                    if (market == '0xb184d99a492a24f708ac8104b9e21aaafcf0c44f5212defcdc1ce2bce57a8e8'){
+                        console.log("found it", market);
+                    }
                     if (numMarkets >= config.limit) continue;
                     var market = markets[j];
                     //print some occasional status info
@@ -417,7 +446,6 @@ module.exports = {
             var id = filtrate.marketID;
             if (self.debug) console.log("marketCreated filter:", id);
             self.augur.getMarketInfo(id, (marketInfo) => {
-                console.log("info", id, marketInfo);
                 if (self.debug) console.log("marketCreated filter info:", id, marketInfo);
                 self.upsertMarketInfo(id, marketInfo);
             });

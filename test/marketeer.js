@@ -43,6 +43,14 @@ var removeDB = function (done){
     });   
 }
 
+var marketId1 = "0x926de0662b697777f13e296a773c026d3831a58858f7c6b3b39506bec5e36c75";
+var marketId2 = "0x969a5f7978efc98258c24e69892b6d9db7867652dd750c32e21bdf6c85dfab";
+var marketId3 = "0x49bcd98d201ada87719a87ee7023302d669c74187aa955e56dea5780ba895167";
+var marketId4 = "0xe8f87d6549b029039baa7728d85cbe3196b198a024848e2d20029ee2797558a9";
+
+var accountId1 = "0xad9bd4391f5d0e407db06c827a9b1581f8085cde";
+var accountId2 = "0x025af06be127679ed3df995d75a5e803f3510bd6";
+
 //test market Data
 var doc1 = { network: '2',
   makerFee: '0.01',
@@ -167,28 +175,28 @@ var doc4 = { network: '2',
 
 //test price history
 var history = { '1': 
-   [ { market: '1',
+   [ { market: marketId1,
        type: 2,
        user: 'A',
        price: '0.01',
        shares: '1',
        timestamp: 1468531807,
        blockNumber: 1},
-     { market: '1',
+     { market: marketId1,
        type: 1,
        user: 'A',
        price: '0.999',
        shares: '1',
        timestamp: 2,
        blockNumber: 1309015 },
-     { market: '1',
+     { market: marketId1,
        type: 2,
        user: 'A',
        price: '0.52',
        shares: '0.25',
        timestamp: 1468531957,
        blockNumber: 3 },
-     { market: '1',
+     { market: marketId1,
        type: 2,
        user: 'B',
        price: '0.5',
@@ -196,28 +204,28 @@ var history = { '1':
        timestamp: 1468531957,
        blockNumber: 4} ], 
     '2': 
-   [ { market: '1',
+   [ { market: marketId1,
        type: 2,
        user: 'C',
        price: '0.01',
        shares: '1',
        timestamp: 1468531807,
        blockNumber: 3 },
-     { market: '1',
+     { market: marketId1,
        type: 1,
        user: 'C',
        price: '0.999',
        shares: '1',
        timestamp: 1468531897,
        blockNumber: 4 },
-     { market: '1',
+     { market: marketId1,
        type: 2,
        user: 'D',
        price: '0.52',
        shares: '0.25',
        timestamp: 1468531957,
        blockNumber: 5},
-     { market: '1',
+     { market: marketId1,
        type: 2,
        user: 'E',
        price: '0.5',
@@ -227,7 +235,7 @@ var history = { '1':
    };
 
 var account_trades = {
-  "1": {
+  "0x926de0662b697777f13e296a773c026d3831a58858f7c6b3b39506bec5e36c75": {
     "1": [
       {
         "type": 1,
@@ -239,7 +247,7 @@ var account_trades = {
       }
     ]
   },
-  "2": {
+  "0x969a5f7978efc98258c24e69892b6d9db7867652dd750c32e21bdf6c85dfab": {
     "1": [
       {
         "type": 1,
@@ -251,7 +259,7 @@ var account_trades = {
       }
     ]
   },
-  "3": {
+  "0x49bcd98d201ada87719a87ee7023302d669c74187aa955e56dea5780ba895167": {
     "1": [
       {
         "type": 1,
@@ -263,7 +271,7 @@ var account_trades = {
       }
     ]
   },
-  "4": {
+  "0xe8f87d6549b029039baa7728d85cbe3196b198a024848e2d20029ee2797558a9": {
     "1": [
       {
         "type": 1,
@@ -282,12 +290,11 @@ describe("getMarketInfo", function () {
     afterEach(removeDB);
     it("retrieve and verify document", function (done) {
         this.timeout(TIMEOUT);
-        var id = abi.prefix_hex(crypto.randomBytes(32).toString("hex"));
         mark.connect(config, function (err) {
             assert.isNull(err);
-            mark.upsertMarketInfo(id, doc1, function (err) {
+            mark.upsertMarketInfo(marketId1, doc1, function (err) {
                 assert.isNull(err);
-                mark.getMarketInfo(id, function (err, result) {
+                mark.getMarketInfo(marketId1, function (err, result) {
                     assert.isNull(err);
                     assert.deepEqual(result, JSON.stringify(doc1));
                     done();
@@ -302,18 +309,17 @@ describe("upsertMarketInfo", function () {
     afterEach(removeDB);
     it("insert and update document", function (done) {
         this.timeout(TIMEOUT);
-        var id = abi.prefix_hex(crypto.randomBytes(32).toString("hex"));
         mark.connect(config, function (err) {
             assert.isNull(err);
-            mark.upsertMarketInfo(id, doc1, function (err) {
+            mark.upsertMarketInfo(marketId1, doc1, function (err) {
                 assert.isNull(err);
-                mark.getMarketInfo(id, function (err, result) {
+                mark.getMarketInfo(marketId1, function (err, result) {
                     assert.isNull(err);
                     assert.deepEqual(result, JSON.stringify(doc1));
                     doc1.volume = "50";
-                    mark.upsertMarketInfo(id, doc1, function (err) {
+                    mark.upsertMarketInfo(marketId1, doc1, function (err) {
                         assert.isNull(err);
-                        mark.getMarketInfo(id, function (err, result) {
+                        mark.getMarketInfo(marketId1, function (err, result) {
                             assert.isNull(err);
                             assert.deepEqual(result, JSON.stringify(doc1));
                             done();
@@ -333,30 +339,30 @@ describe("getMarketsInfo", function () {
         this.timeout(TIMEOUT);
 
         mark.connect(config, (err) => {
-         mark.upsertMarketInfo("A", doc1, (err) => {
-          mark.upsertMarketInfo("B", doc2, (err) => {
-           mark.upsertMarketInfo("C", doc3, (err) => {
-            mark.upsertMarketInfo("D", doc4, (err) => {
+         mark.upsertMarketInfo(marketId1, doc1, (err) => {
+          mark.upsertMarketInfo(marketId2, doc2, (err) => {
+           mark.upsertMarketInfo(marketId3, doc3, (err) => {
+            mark.upsertMarketInfo(marketId4, doc4, (err) => {
              //2 markets w/ branch id: 1
              mark.getMarketsInfo("1", (err, markets) => {
                 assert.isNull(err);
                 assert.isNotNull(markets);
                 var results = JSON.parse(markets);
-                assert.property(results, 'A');
-                assert.property(results, 'B');
-                assert.notProperty(results, 'C');
-                assert.notProperty(results, 'D');
-                assert.deepEqual(Object.keys(results['A']).length, 9);
-                assert.deepEqual(Object.keys(results['B']).length, 9);
-                assert.deepEqual(results['A']['makerFee'], doc1.makerFee);
-                assert.deepEqual(results['A']['takerFee'], doc1.takerFee);
-                assert.deepEqual(results['A']['tradingPeriod'], doc1.tradingPeriod);
-                assert.deepEqual(results['A']['creationTime'], doc1.creationTime);
-                assert.deepEqual(results['A']['volume'], doc1.volume);
-                assert.deepEqual(results['A']['tags'], doc1.tags);
-                assert.deepEqual(results['A']['endDate'], doc1.endDate);
-                assert.deepEqual(results['A']['description'], doc1.description);
-                assert.property(results['A'], 'tradingFee');
+                assert.property(results, marketId1);
+                assert.property(results, marketId2);
+                assert.notProperty(results, marketId3);
+                assert.notProperty(results, marketId4);
+                assert.deepEqual(Object.keys(results[marketId1]).length, 9);
+                assert.deepEqual(Object.keys(results[marketId2]).length, 9);
+                assert.deepEqual(results[marketId1]['makerFee'], doc1.makerFee);
+                assert.deepEqual(results[marketId1]['takerFee'], doc1.takerFee);
+                assert.deepEqual(results[marketId1]['tradingPeriod'], doc1.tradingPeriod);
+                assert.deepEqual(results[marketId1]['creationTime'], doc1.creationTime);
+                assert.deepEqual(results[marketId1]['volume'], doc1.volume);
+                assert.deepEqual(results[marketId1]['tags'], doc1.tags);
+                assert.deepEqual(results[marketId1]['endDate'], doc1.endDate);
+                assert.deepEqual(results[marketId1]['description'], doc1.description);
+                assert.property(results[marketId1], 'tradingFee');
                 done();
              });
             });
@@ -369,15 +375,15 @@ describe("getMarketsInfo", function () {
     it("tests persistence", function (done) {
         this.timeout(TIMEOUT);
         mark.connect(config, (err) => {
-          mark.upsertMarketInfo("A", doc1, (err) => {
+          mark.upsertMarketInfo(marketId1, doc1, (err) => {
             mark.disconnect( (err) => {
               mark.connect(config, (err) => {
                 mark.getMarketsInfo("1", (err, markets) => {
                   assert.isNull(err);
                   assert.isNotNull(markets);
                   var results = JSON.parse(markets);
-                  assert.property(results, 'A');
-                  assert.deepEqual(Object.keys(results['A']).length, 9);
+                  assert.property(results, marketId1);
+                  assert.deepEqual(Object.keys(results[marketId1]).length, 9);
                   done();
                 });
               });
@@ -395,16 +401,16 @@ describe("batchGetMarketsInfo", function () {
     it("retrieves marekts in bulk", function (done) {
         this.timeout(TIMEOUT);
         mark.connect(config, (err) => {
-         mark.upsertMarketInfo("A", doc1, (err) => {
-          mark.upsertMarketInfo("B", doc2, (err) => {
-            mark.batchGetMarketInfo(["A", "B", "C"], (err, markets) => {
+         mark.upsertMarketInfo(marketId1, doc1, (err) => {
+          mark.upsertMarketInfo(marketId2, doc2, (err) => {
+            mark.batchGetMarketInfo([marketId1, marketId2, marketId3], (err, markets) => {
                 assert.isNull(err);
                 var results = JSON.parse(markets);
-                assert.property(results, "A");
-                assert.property(results, "B");
-                assert.notProperty(results, "C");
-                assert.deepEqual(results["A"], doc1);
-                assert.deepEqual(results["B"], doc2);
+                assert.property(results, marketId1);
+                assert.property(results, marketId2);
+                assert.notProperty(results, marketId3);
+                assert.deepEqual(results[marketId1], doc1);
+                assert.deepEqual(results[marketId2], doc2);
                 done();
             });
           });
@@ -413,7 +419,6 @@ describe("batchGetMarketsInfo", function () {
     })
 });
 
-
 describe("getMarketPriceHistory", function (done){
     beforeEach(makeDB);
     afterEach(removeDB);
@@ -421,9 +426,9 @@ describe("getMarketPriceHistory", function (done){
     it("fetches history with no options", function (done) {
         this.timeout(TIMEOUT);
         mark.connect(config, (err) => {
-            mark.upsertPriceHistory("A", history, (err) => {
+            mark.upsertPriceHistory(marketId1, history, (err) => {
                 assert.isNull(err);
-                mark.getMarketPriceHistory("A", function (err, value) {
+                mark.getMarketPriceHistory(marketId1, function (err, value) {
                     assert.isNull(err);
                     var results = JSON.parse(value);
                     assert.deepEqual(results, history);
@@ -436,10 +441,10 @@ describe("getMarketPriceHistory", function (done){
     it("fetches history with options", function (done) {
         this.timeout(TIMEOUT);
         mark.connect(config, (err) => {
-            mark.upsertPriceHistory("A", history, (err) => {
+            mark.upsertPriceHistory(marketId1, history, (err) => {
                 assert.isNull(err);
                 var options = {fromBlock: 2, toBlock: 4};
-                mark.getMarketPriceHistory("A", options, function (err, value) {
+                mark.getMarketPriceHistory(marketId1, options, function (err, value) {
                     assert.isNull(err);
                     var results = JSON.parse(value);
                     assert.property(results, '1');
@@ -464,9 +469,9 @@ describe("getAccountTrades", function (done){
     it("fetches trades with no options", function (done) {
         this.timeout(TIMEOUT);
         mark.connect(config, (err) => {
-            mark.upsertAccountTrades("A", account_trades, (err) => {
+            mark.upsertAccountTrades(accountId1, account_trades, (err) => {
                 assert.isNull(err);
-                mark.getAccountTrades("A", function (err, value) {
+                mark.getAccountTrades(accountId1, function (err, value) {
                     assert.isNull(err);
                     var results = JSON.parse(value);
                     assert.deepEqual(results, account_trades);
@@ -479,16 +484,16 @@ describe("getAccountTrades", function (done){
     it("fetches history with options", function (done) {
         this.timeout(TIMEOUT);
         mark.connect(config, (err) => {
-            mark.upsertAccountTrades("A", account_trades, (err) => {
+            mark.upsertAccountTrades(accountId1, account_trades, (err) => {
                 assert.isNull(err);
                 var options = {fromBlock: 2, toBlock: 3};
-                mark.getAccountTrades("A", options, function (err, value) {
+                mark.getAccountTrades(accountId1, options, function (err, value) {
                     assert.isNull(err);
                     var results = JSON.parse(value);
-                    assert.property(results, '2');
-                    assert.property(results, '3');
-                    assert.notProperty(results, '1');
-                    assert.notProperty(results, '4');
+                    assert.property(results, marketId2);
+                    assert.property(results, marketId3);
+                    assert.notProperty(results, marketId1);
+                    assert.notProperty(results, marketId4);
                     done();
                 });
             });
@@ -496,7 +501,6 @@ describe("getAccountTrades", function (done){
     });
 
 });
-
 
 describe("scan", function () {
     beforeEach(makeDB);
@@ -545,7 +549,7 @@ describe("watch", function () {
         numMarkets += mark.augur.getMarketsInBranch(branches[i]).length;
     }
     var expectedMarkets = numMarkets < config.limit ? numMarkets : config.limit;
-     var branch = mark.augur.constants.DEFAULT_BRANCH_ID
+    var branch = mark.augur.constants.DEFAULT_BRANCH_ID
 
     it("does an initial market scan", function (done) {
         this.timeout(TIMEOUT*8);
@@ -1049,4 +1053,3 @@ describe("watch", function () {
     });
  
 });
-
