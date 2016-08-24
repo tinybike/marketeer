@@ -9,7 +9,6 @@ var path = require("path");
 var cp = require("child_process");
 var chalk = require("chalk");
 var crypto = require("crypto");
-var abi = require("augur-abi");
 var assert = require("chai").assert;
 var leveldown = require('leveldown');
 var mark = require("../");
@@ -502,6 +501,7 @@ describe("getAccountTrades", function (done){
 
 });
 
+
 describe("scan", function () {
     beforeEach(makeDB);
     afterEach(removeDB);
@@ -600,10 +600,9 @@ describe("watch", function () {
                         assert.property(r, "callReturn");
                         assert.property(r, "blockHash");
                         assert.property(r, "blockNumber");
-                        assert.property(r, "marketID");
                         var maxTries = 10;
                         var counter = 0;
-                        var id = r["marketID"];
+                        var id = r["callReturn"];
                         //may be a slight delay betwwen market creation
                         //and marketeer update. Retry this a few times.
                         var timerId = setInterval( () => {
@@ -667,8 +666,7 @@ describe("watch", function () {
                     onSent: function (r) {console.log("createSingleEventMarket sent:", r);},
                     onSuccess: function (r) {
                         console.log("createSingleEventMarket success:", r);
-                        assert.property(r, "marketID");
-                        var id = r["marketID"];
+                        var id = r["callReturn"];
                         var accounts = mark.augur.rpc.personal("listAccounts");
                         mark.augur.rpc.personal("unlockAccount", [accounts[0], "password"]);
                         mark.augur.useAccount(accounts[0]);
@@ -759,7 +757,6 @@ describe("watch", function () {
         }); //watch
     });
 
-
     it("updates price history", function (done) {
         this.timeout(TIMEOUT*20);
         mark.watch(config, function (err, updates, data) {
@@ -785,8 +782,8 @@ describe("watch", function () {
                     onSent: function (r) {console.log("createSingleEventMarket sent:", r);},
                     onSuccess: function (r) {
                         console.log("createSingleEventMarket success:", r);
-                        assert.property(r, "marketID");
-                        var id = r["marketID"];
+                        assert.property(r, "callReturn");
+                        var id = r["callReturn"];
                         var accounts = mark.augur.rpc.personal("listAccounts");
                         mark.augur.rpc.personal("unlockAccount", [accounts[0], "password"]);
                         mark.augur.useAccount(accounts[0]);
@@ -892,8 +889,8 @@ describe("watch", function () {
                     onSent: function (r) {console.log("createSingleEventMarket sent:", r);},
                     onSuccess: function (r) {
                         console.log("createSingleEventMarket success:", r);
-                        assert.property(r, "marketID");
-                        var id = r["marketID"];
+                        assert.property(r, "callReturn");
+                        var id = r["callReturn"];
                         var accounts = mark.augur.rpc.personal("listAccounts");
                         mark.augur.rpc.personal("unlockAccount", [accounts[0], "password"]);
                         mark.augur.useAccount(accounts[0]);
@@ -1012,7 +1009,7 @@ describe("watch", function () {
                         console.log("createSingleEventMarket success:", r);
                         var maxTries = 10;
                         var counter = 0;
-                        var id = r["marketID"];
+                        var id = r["callReturn"];
                         mark.augur.updateTradingFee({
                             branchId: branch,
                             market: id,
@@ -1051,5 +1048,7 @@ describe("watch", function () {
             }, 2500);
         });
     });
- 
+
 });
+
+
