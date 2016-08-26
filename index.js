@@ -489,6 +489,18 @@ module.exports = {
             });
         }
 
+        function txChange(filtrate) {
+            if (self.debug) console.log("tx change:", filtrate);
+            if (!filtrate) return;
+            if (!filtrate['market']) return;
+            var id = filtrate['market'];
+
+            self.augur.getMarketInfo(id, (marketInfo) => {
+                if (self.debug) console.log("tx change market info:", marketInfo);
+                self.upsertMarketInfo(id, marketInfo);
+            });
+        }
+
         function doneSyncing(){
 
             function scanHelper(){
@@ -509,7 +521,9 @@ module.exports = {
                 self.augur.filters.listen({
                     marketCreated: marketCreated,
                     log_fill_tx: priceChanged,
-                    tradingFeeUpdated: feeChanged
+                    tradingFeeUpdated: feeChanged,
+                    log_add_tx: txChange,
+                    log_cancel: txChange,
                 }, function (filters) {
                     if (self.debug) console.log(filters);
                     scanHelper();
