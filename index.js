@@ -49,7 +49,7 @@ module.exports = {
         self.augur.connect(config, () => {
             self.augur.rpc.debug.abi = true;
             self.augur.rpc.retryDroppedTxs = true;
-            self.augur.rpc.debug.broadcast = true;
+            //self.augur.rpc.debug.broadcast = true;
             if (config.db){
                 levelup(config.db, (err, db) => {
                     if (err) return callback(err);
@@ -399,18 +399,25 @@ module.exports = {
             for (var i = 0; i < branches.length; i++) {
                 if (numMarkets >= config.limit) continue;
                 var branch = branches[i];
-                console.log("a",     branch);
-                var markets = self.augur.getMarketsInBranch(branch);
-                console.log("b");
-                for (var j = 0; j < markets.length; j++) {
+
+                //get a list of marketIds
+                var marketIds = [];
+                var step = 2000;
+                var marketsInBranch = self.augur.getNumMarketsBranch(branch);
+                for (var i = 0; i < marketsInBranch; i += step){
+                    var end = Math.min(i+step, marketsInBranch);
+                    marketIds = marketIds.concat(self.augur.getSomeMarketsInBranch(branch, i, end));
+                }
+
+                for (var j = 0; j < marketIds.length; j++) {
                     if (numMarkets >= config.limit) continue;
-                    var market = markets[j];
+                    var market = marketIds[j];
                     //print some occasional status info
                     var status = null;
                     if (j==0){
-                        status = "Loading " + markets.length + " markets from branch " + branch;
+                        status = "Loading " + marketIds.length + " markets from branch " + branch;
                     }else if (j%25==0){
-                        status = (j/markets.length*100).toFixed(2) + " % complete";
+                        status = (j/marketIds.length*100).toFixed(2) + " % complete";
                     }
                     marketQueue.push({id: market, status: status}, function(err) {
                         if (err) return callback(err);
