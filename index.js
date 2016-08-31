@@ -7,7 +7,10 @@
 
 var async = require("async");
 var levelup = require('levelup');
-var sublevel = require('level-sublevel')
+var sublevel = require('level-sublevel');
+
+var MarketStreamTransform = require('./marketStreamTransform');
+var marketTransform = MarketStreamTransform({ objectMode: true });
 
 var noop = function () {};
 
@@ -17,17 +20,26 @@ module.exports = {
 
     db: null,
     dbMarketInfo: null,
+    dbMarketInfoTruncated: null,
     dbMarketPriceHistory: null,
     dbAccountTrades: null,
-
-    marketsInfo: null,
     
     augur: require("augur.js"),
 
     watcher: null,
 
-    //List of market properties to cache
-    marketProps: {tradingPeriod:1, tradingFee:1, creationTime:1, volume:1, tags:1, endDate:1, description:1, makerFee:1, takerFee:1},
+    //List of market properties to cache for quick getMarketsInfo lookup
+    marketProps: {tradingPeriod: 1, 
+                  tradingFee: 1, 
+                  creationTime: 1, 
+                  volume: 1, 
+                  tags: 1, 
+                  endDate: 1, 
+                  description: 1, 
+                  makerFee: 1, 
+                  takerFee: 1,
+                  branchId: 1 },
+
     idRegex: /^(0x)(0*)(.*)/,
 
     connect: function (config, callback) {
@@ -37,18 +49,16 @@ module.exports = {
         self.augur.connect(config, () => {
             self.augur.rpc.debug.abi = true;
             self.augur.rpc.retryDroppedTxs = true;
-            //self.augur.rpc.debug.broadcast = true;
+            self.augur.rpc.debug.broadcast = true;
             if (config.db){
                 levelup(config.db, (err, db) => {
                     if (err) return callback(err);
                     self.db = sublevel(db);
                     self.dbMarketInfo = self.db.sublevel('markets');
+                    self.dbMarketInfoTruncated = self.db.sublevel('marketstruncated');
                     self.dbMarketPriceHistory = self.db.sublevel('pricehistory');
                     self.dbAccountTrades = self.db.sublevel('accounttrades');
-                    self.populateMarkets(self.dbMarketInfo, (err) => {
-                        if (err) return callback(err);
-                        return callback(null);
-                    });
+                    return callback(null);
                 });
             }
         });
@@ -67,43 +77,21 @@ module.exports = {
         return null;
     },
 
-    //deserialize db into memory
-    populateMarkets: function(marketDB, callback){
-        var self = this;
-        self.marketsInfo = {};
-        if (!marketDB) return callback("db not found");
-
-        marketDB.createReadStream({valueEncoding: 'json'})
-        .on('data', (data) => {
-            if (!data.value.branchId){
-                return callback('populateMarkets Error: branch not found');
-            }
-            var branch = data.value.branchId;
-            self.filterProps(data.value);
-            self.marketsInfo[branch] = self.marketsInfo[branch] || {};
-            self.marketsInfo[branch][data.key] = data.value;
-        }).on('error', (err) => {
-            return callback('populateMarkets Error:', err);
-        }).on('end', () => {
-            return callback(null);
-        });
-    },
-
     disconnect: function (callback) {
         var self = this;
         callback = callback || function (e, r) { console.log(e, r); };
 
-        if (!self.db || typeof self.db !== "object"
-             || !self.dbMarketInfo || typeof self.dbMarketInfo !== "object"){
+        if (!self.db || typeof self.db !== "object"){
             return callback("db not found");
         }
         self.db.close( (err) => {
             if (err) return callback(err);
             self.db = null;
             self.dbMarketInfo = null;
+            self.dbMarketInfoTruncated = null;
             self.dbMarketPriceHistory = null;
             self.dbAccountTrades = null;
-            self.marketsInfo = {};
+
             return callback(null);
         });
     },
@@ -113,13 +101,15 @@ module.exports = {
         id = normalizeId(id);
         if (!id) return callback("no market specified");
         if (!self.dbMarketInfo) return callback("db not found");
-        if (!self.marketsInfo) return callback("marketsInfo not loaded");
+        if (!self.dbMarketInfoTruncated || !self.dbMarketInfoTruncated) return callback("marketsInfo not loaded");
         
         //TODO: fetch to get branch, delete, delete from mem.
         self.dbMarketInfo.del(id, (err) => {
             if (err) return callback(err);
-            delete self.marketsInfo[id];
-            return callback(null);
+            self.dbMarketInfoTruncated.del(id, (err) => {
+                if (err) return callback(err);
+                return callback(null);
+            });
         });
     },
 
@@ -142,10 +132,11 @@ module.exports = {
     getMarketsInfo: function(branch, callback){
         var self = this;        
         branch = branch || this.augur.constants.DEFAULT_BRANCH_ID;
-        if (!self.marketsInfo) return callback("marketsInfo not loaded");
-        if (!self.marketsInfo[branch]) return callback(null, "{}");
-
-        return callback(null, JSON.stringify(self.marketsInfo[branch]));
+        if (!self.dbMarketInfoTruncated) return callback("marketsInfo not loaded");
+        //if (!self.marketsInfo[branch]) return callback(null, "{}");
+        var marketStream = self.dbMarketInfoTruncated.createReadStream({valueEncoding: 'json'});
+        marketStream = marketStream.pipe(marketTransform);
+        return callback(null, marketStream);
     },
 
     batchGetMarketInfo: function(ids, callback){
@@ -262,21 +253,22 @@ module.exports = {
         callback = callback || noop;
         id = self.normalizeId(id);
         if (!id) return callback ("upsertMarketInfo: id not found");
-        if (!self.db || !self.dbMarketInfo) return callback("upsertMarketInfo: db not found");
+        if (!self.db || !self.dbMarketInfo || !self.dbMarketInfoTruncated) return callback("upsertMarketInfo: db not found");
         if (!market) return callback("upsertMarketInfo: market data not found");
         if (!market.branchId) return callback("upsertMarketInfo: branchId not found in market data");
 
         var branch = market.branchId;
         self.dbMarketInfo.put(id, market, {valueEncoding: 'json'}, (err) => {
+            if (err) return callback("upsertMarket error:", err);
             //Only need to cache a subset of fields.
             //Make a copy of object so we don't modify doc that was passed in.
             var cacheInfo = JSON.parse(JSON.stringify(market));
             self.filterProps(cacheInfo);
-            if (err) return callback("upsertMarket error:", err);
-
-            self.marketsInfo[branch] = self.marketsInfo[branch] || {};
-            self.marketsInfo[branch][id] = cacheInfo;
-            return callback(null);
+            
+            self.dbMarketInfoTruncated.put(id, cacheInfo, {valueEncoding: 'json'}, (err) => {
+                if (err) return callback("upsertMarket error:", err);
+                return callback(null);
+            });
         });
     },
 
@@ -399,7 +391,7 @@ module.exports = {
 
         
         if (this.db && typeof this.db === "object" && 
-            this.marketsInfo && typeof this.marketsInfo === "object") {
+            this.dbMarketInfo && typeof this.dbMarketInfo === "object") {
 
             config.limit = config.limit || Number.MAX_VALUE;
             var branches = self.augur.getBranches();
@@ -407,7 +399,9 @@ module.exports = {
             for (var i = 0; i < branches.length; i++) {
                 if (numMarkets >= config.limit) continue;
                 var branch = branches[i];
+                console.log("a",     branch);
                 var markets = self.augur.getMarketsInBranch(branch);
+                console.log("b");
                 for (var j = 0; j < markets.length; j++) {
                     if (numMarkets >= config.limit) continue;
                     var market = markets[j];
