@@ -16,7 +16,7 @@ var noop = function () {};
 
 module.exports = {
 
-    debug: true,
+    debug: false,
 
     db: null,
     dbMarketInfo: null,
@@ -257,11 +257,11 @@ module.exports = {
         if (!market) return callback("upsertMarketInfo: market data not found");
         if (!market.branchId) return callback("upsertMarketInfo: branchId not found in market data");
 
-        var branch = market.branchId;
+        delete market.sortOrder;
+        //Storing data twice - once with full market info, another with truncated data
+        //for more efficient getMarketsInfo scans/searches
         self.dbMarketInfo.put(id, market, {valueEncoding: 'json'}, (err) => {
             if (err) return callback("upsertMarket error:", err);
-            //Only need to cache a subset of fields.
-            //Make a copy of object so we don't modify doc that was passed in.
             var cacheInfo = JSON.parse(JSON.stringify(market));
             self.filterProps(cacheInfo);
             
@@ -319,28 +319,32 @@ module.exports = {
         var accounts = [];
         var numMarkets = 0;
         
-        function loadMarket(data, callback) {
+        function loadMarkets(data, callback) {
             if (data.status) console.log(data.status);
-            var marketInfo = self.augur.getMarketInfo(data.id);
 
-            if (marketInfo && !marketInfo.error){
-                self.upsertMarketInfo(data.id, marketInfo, (err) => {
+            var markets = self.augur.batchGetMarketInfo(data.ids);
+            async.each(Object.keys(markets), function (id, nextMarket) {
+                var marketInfo = markets[id];
+                if (!marketInfo) nextMarket("error loading marketInfo");
+
+                self.upsertMarketInfo(id, marketInfo, (err) => {
                     
                     if (err) return callback(err);
-                    var priceHistory = self.augur.getMarketPriceHistory(data.id);
+                    var priceHistory = self.augur.getMarketPriceHistory(id);
                     if (priceHistory){
-                        self.upsertPriceHistory(data.id, priceHistory, (err) => {
-                            if (err) return callback(err);
+                        self.upsertPriceHistory(id, priceHistory, (err) => {
+                            if (err) return nextMarket(err);
                             accounts = accounts.concat(self.getAccountsFromPriceHistory(priceHistory));
-                            return callback(null);
+                            return nextMarket(null);
                         });   
                     }else{
-                        return callback(null);
+                        return nextMarket(null);
                     }
                 });
-            }else {
-                return callback("error loading markets");
-            } 
+            }, function (err) {
+                if (err) return callback(err);
+                return callback(null);
+            });
         }
 
         function loadAccount(data, callback) {
@@ -358,7 +362,7 @@ module.exports = {
 
         }
 
-        var marketQueue = async.queue(loadMarket, 2);
+        var marketQueue = async.queue(loadMarkets, 2);
         var accountQueue = async.queue(loadAccount, 2);
 
         // called when all items in queue have been processed
@@ -409,20 +413,22 @@ module.exports = {
                     marketIds = marketIds.concat(self.augur.getSomeMarketsInBranch(branch, i, end));
                 }
 
-                for (var j = 0; j < marketIds.length; j++) {
-                    if (numMarkets >= config.limit) continue;
-                    var market = marketIds[j];
+                var batchSize = 15;
+                for (var j = 0; j < marketIds.length; j += batchSize) {
+                    if (numMarkets >= config.limit) break;
+                    var remaining = config.limit - numMarkets;
+                    var markets = marketIds.slice(j, j + Math.min(batchSize, remaining));
                     //print some occasional status info
                     var status = null;
                     if (j==0){
-                        status = "Loading " + marketIds.length + " markets from branch " + branch;
-                    }else if (j%25==0){
+                        status = "Loading " + Math.min(remaining, marketIds.length) + " markets from branch " + branch;
+                    }else if (j % (batchSize * 5) == 0){
                         status = (j/marketIds.length*100).toFixed(2) + " % complete";
                     }
-                    marketQueue.push({id: market, status: status}, function(err) {
+                    marketQueue.push({ids: markets, status: status}, function(err) {
                         if (err) return callback(err);
                     });
-                    numMarkets++;
+                    numMarkets += Math.min(batchSize, remaining);
                 }
             }
         } else {
