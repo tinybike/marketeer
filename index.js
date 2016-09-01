@@ -49,6 +49,7 @@ module.exports = {
         self.augur.connect(config, () => {
             self.augur.rpc.debug.abi = true;
             self.augur.rpc.retryDroppedTxs = true;
+            self.augur.rpc.POST_TIMEOUT = 120000
             //self.augur.rpc.debug.broadcast = true;
             if (config.db){
                 levelup(config.db, (err, db) => {
@@ -320,36 +321,38 @@ module.exports = {
         var numMarkets = 0;
         
         function loadMarkets(data, callback) {
-            if (data.status) console.log(data.status);
+            
+            self.augur.batchGetMarketInfo(data.ids, (markets) => {
+                if (!markets) return callback("error fetching markets");
+                async.each(Object.keys(markets), function (id, nextMarket) {
+                    var marketInfo = markets[id];
+                    if (!marketInfo) nextMarket("error loading marketInfo");
 
-            var markets = self.augur.batchGetMarketInfo(data.ids);
-            async.each(Object.keys(markets), function (id, nextMarket) {
-                var marketInfo = markets[id];
-                if (!marketInfo) nextMarket("error loading marketInfo");
-
-                self.upsertMarketInfo(id, marketInfo, (err) => {
-                    
-                    if (err) return callback(err);
-                    var priceHistory = self.augur.getMarketPriceHistory(id);
-                    if (priceHistory){
-                        self.upsertPriceHistory(id, priceHistory, (err) => {
-                            if (err) return nextMarket(err);
-                            accounts = accounts.concat(self.getAccountsFromPriceHistory(priceHistory));
+                    self.upsertMarketInfo(id, marketInfo, (err) => {                     
+                        if (err) return callback(err);
+                        var priceHistory = self.augur.getMarketPriceHistory(id);
+                        if (priceHistory){
+                            self.upsertPriceHistory(id, priceHistory, (err) => {
+                                if (err) return nextMarket(err);
+                                accounts = accounts.concat(self.getAccountsFromPriceHistory(priceHistory));
+                                return nextMarket(null);
+                            });   
+                        }else{
                             return nextMarket(null);
-                        });   
-                    }else{
-                        return nextMarket(null);
-                    }
+                        }
+                    });
+                }, function (err) {
+                    if (data.status) console.log(data.status);
+                    if (err) return callback(err);
+                    return callback(null);
                 });
-            }, function (err) {
-                if (err) return callback(err);
-                return callback(null);
             });
+            
         }
 
         function loadAccount(data, callback) {
-            if (data.status) console.log(data.status);
             self.augur.getAccountTrades(data.account, (trades) => {
+                if (data.status) console.log(data.status);
                 if (trades){
                     self.upsertAccountTrades(data.account, trades, (err) => {
                         if (err) return callback(err);
@@ -362,8 +365,9 @@ module.exports = {
 
         }
 
-        var marketQueue = async.queue(loadMarkets, 2);
-        var accountQueue = async.queue(loadAccount, 2);
+        //careful about setting # workers too high. Geth will choke
+        var marketQueue = async.queue(loadMarkets, 10);
+        var accountQueue = async.queue(loadAccount, 10);
 
         // called when all items in queue have been processed
         marketQueue.drain = function() {
@@ -413,7 +417,7 @@ module.exports = {
                     marketIds = marketIds.concat(self.augur.getSomeMarketsInBranch(branch, i, end));
                 }
 
-                var batchSize = 15;
+                var batchSize = 5;
                 for (var j = 0; j < marketIds.length; j += batchSize) {
                     if (numMarkets >= config.limit) break;
                     var remaining = config.limit - numMarkets;
