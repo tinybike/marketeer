@@ -64,7 +64,7 @@ stream.on('data', (data) => {
 The options parameter allows you to limit the results of the stream. It should be in the format
 ```javascript
 var options = { blockId: ['eq', 4],
-                volume: ['gt', 100}
+                volume: ['gt', 100]}
 ```
 The key is the field you'd like to filter on, the first item in the array is the filter operation (eq, lt, lte, gt, gte), and the second value in the array is the value you are comparing against.
 
