@@ -9,8 +9,7 @@ var async = require("async");
 var levelup = require('levelup');
 var sublevel = require('level-sublevel');
 
-var MarketStreamTransform = require('./marketStreamTransform');
-var marketTransform = MarketStreamTransform({ objectMode: true });
+var branchFilter = require('./transforms/branchFilter');
 
 var noop = function () {};
 
@@ -135,8 +134,19 @@ module.exports = {
         branch = branch || this.augur.constants.DEFAULT_BRANCH_ID;
         if (!self.dbMarketInfoTruncated) return callback("marketsInfo not loaded");
         //if (!self.marketsInfo[branch]) return callback(null, "{}");
+        
+        var count = 0;
+        self.dbMarketInfoTruncated.createReadStream({valueEncoding: 'json'}).on('data', (data) => {
+            count++;
+            //console.log("data", data);
+        }).on('end', () => {
+            //var end = new Date().getTime();
+            //var time = end - start;
+            console.log(count);
+        });
+
         var marketStream = self.dbMarketInfoTruncated.createReadStream({valueEncoding: 'json'});
-        marketStream = marketStream.pipe(marketTransform);
+        marketStream = marketStream.pipe(new branchFilter(branch));
         return callback(null, marketStream);
     },
 
@@ -380,8 +390,8 @@ module.exports = {
             for (var i = 0; i < accounts.length; i++) {
                 var account = accounts[i];
                 var status = null;
-                if (j%25==0){
-                    status = (j/accounts.length*100).toFixed(2) + " % complete";
+                if (i%25==0){
+                    status = (i/accounts.length*100).toFixed(2) + " % complete";
                 }
                 accountQueue.push({account: account, status: status}, function(err){
                     if (err) return callback(err);
@@ -397,7 +407,6 @@ module.exports = {
         config = config || {};
         callback = callback || noop;
 
-        
         if (this.db && typeof this.db === "object" && 
             this.dbMarketInfo && typeof this.dbMarketInfo === "object") {
 
@@ -427,7 +436,7 @@ module.exports = {
                     if (j==0){
                         status = "Loading " + Math.min(remaining, marketIds.length) + " markets from branch " + branch;
                     }else if (j % (batchSize * 5) == 0){
-                        status = (j/marketIds.length*100).toFixed(2) + " % complete";
+                        status = (j / Math.min(remaining + numMarkets, marketIds.length) * 100).toFixed(2) + " % complete";
                     }
                     marketQueue.push({ids: markets, status: status}, function(err) {
                         if (err) return callback(err);
