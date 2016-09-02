@@ -130,6 +130,14 @@ module.exports = {
         });
     },
 
+    isFloat: function (val) {
+        return (/^(\-|\+)?([0-9]*(\.[0-9]+)?)$/.test(val));
+    },
+
+    isInt: function (val) {
+        return (/^(\-|\+)?([0-9]+)$/.test(val))
+    },
+
     getMarketsInfo: function(options, callback){
         var self = this;
         if (!self.dbMarketInfoTruncated) return callback("marketsInfo not loaded");
@@ -141,6 +149,11 @@ module.exports = {
             if (options.hasOwnProperty(key)) {
                 var params = options[key];
                 if (params.length < 2) continue;
+                if (self.isInt(params[1])){
+                    params[1] = parseInt(params[1]);
+                }else if (self.isFloat(params[1])){
+                    params[1] = parseFloat(params[1]);
+                }
                 marketStream = marketStream.pipe(new propFilter(key, params[0], params[1]));
             }
         }
