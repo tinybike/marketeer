@@ -9,7 +9,8 @@ var async = require("async");
 var levelup = require('levelup');
 var sublevel = require('level-sublevel');
 
-var branchFilter = require('./transforms/branchFilter');
+var propFilter = require('./transforms/propFilter');
+var formatFilter = require('./transforms/formatFilter');
 
 var noop = function () {};
 
@@ -129,24 +130,22 @@ module.exports = {
         });
     },
 
-    getMarketsInfo: function(branch, callback){
-        var self = this;        
-        branch = branch || this.augur.constants.DEFAULT_BRANCH_ID;
+    getMarketsInfo: function(options, callback){
+        var self = this;
         if (!self.dbMarketInfoTruncated) return callback("marketsInfo not loaded");
-        //if (!self.marketsInfo[branch]) return callback(null, "{}");
-        
-        var count = 0;
-        self.dbMarketInfoTruncated.createReadStream({valueEncoding: 'json'}).on('data', (data) => {
-            count++;
-            //console.log("data", data);
-        }).on('end', () => {
-            //var end = new Date().getTime();
-            //var time = end - start;
-            console.log(count);
-        });
 
         var marketStream = self.dbMarketInfoTruncated.createReadStream({valueEncoding: 'json'});
-        marketStream = marketStream.pipe(new branchFilter(branch));
+
+        //set up filters
+        for (var key in options) {
+            if (options.hasOwnProperty(key)) {
+                var params = options[key];
+                if (params.length < 2) continue;
+                marketStream = marketStream.pipe(new propFilter(key, params[0], params[1]));
+            }
+        }
+        //format results
+        marketStream = marketStream.pipe(new formatFilter());
         return callback(null, marketStream);
     },
 
