@@ -58,7 +58,7 @@ You can consume the contents of the stream by doing:
 stream.on('data', (data) => {
     console.log(data);
 }).on('end', () => {
-    console.log("finished"
+    console.log("finished");
 });  
 ```
 The options parameter allows you to limit the results of the stream. It should be in the format
