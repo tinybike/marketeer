@@ -1,6 +1,6 @@
 {
   "name": "marketeer",
-  "version": "0.4.15",
+  "version": "0.4.16",
   "description": "Market monitor",
   "main": "index.js",
   "scripts": {
