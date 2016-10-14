@@ -40,8 +40,6 @@ module.exports = {
                   takerFee: 1,
                   branchId: 1 },
 
-    idRegex: /^(0x)(0*)(.*)/,
-
     connect: function (config, callback) {
         var self = this;
         callback = callback || noop;
@@ -65,19 +63,6 @@ module.exports = {
         });
     },
 
-    //some ids returned from filters with leading 0s. This removes them
-    //e.g, 0x0a12345 => 0x12345
-    normalizeId: function (id){
-        var self = this;
-
-        if (!id) return null;
-        var m;
-        if ((m = self.idRegex.exec(id)) !== null) {
-            return (m[1]+m[3]);
-        }
-        return null;
-    },
-
     disconnect: function (callback) {
         var self = this;
         callback = callback || function (e, r) { console.log(e, r); };
@@ -99,7 +84,6 @@ module.exports = {
 
     removeMarketInfo: function (id, callback) {
         var self = this;
-        id = normalizeId(id);
         if (!id) return callback("no market specified");
         if (!self.dbMarketInfo) return callback("db not found");
         if (!self.dbMarketInfoTruncated || !self.dbMarketInfoTruncated) return callback("marketsInfo not loaded");
@@ -117,7 +101,6 @@ module.exports = {
     // select market using market ID
     getMarketInfo: function (id, callback) {
         var self = this;
-        id = self.normalizeId(id);
         if (!id) return callback("no market specified");
         if (!self.dbMarketInfo) return callback("Database not available");
 
@@ -169,7 +152,6 @@ module.exports = {
 
         var info = {};
         async.each(ids, function (id, nextID){
-            id = self.normalizeId(id);
             self.dbMarketInfo.get(id, {valueEncoding: 'json'}, function (err, value) {
                 //skip invalid ids
                 if (!err) { info[id] = value };
@@ -189,7 +171,6 @@ module.exports = {
             options = null;
         }
 
-        id = self.normalizeId(id);
         if (!id) return callback("invalid market id");
         if (!self.dbMarketInfo) return callback("Database not available");
         
@@ -224,7 +205,6 @@ module.exports = {
             options = null;
         }
 
-        account = self.normalizeId(account);
         if (!account) return callback("invalid account id");
         if (!self.dbAccountTrades) return callback("Database not available");
         
@@ -274,7 +254,6 @@ module.exports = {
         var self = this;
         if (self.debug) console.log("upsertMarketInfo:", id, market);
         callback = callback || noop;
-        id = self.normalizeId(id);
         if (!id) return callback ("upsertMarketInfo: id not found");
         if (!self.db || !self.dbMarketInfo || !self.dbMarketInfoTruncated) return callback("upsertMarketInfo: db not found");
         if (!market) return callback("upsertMarketInfo: market data not found");
@@ -298,7 +277,6 @@ module.exports = {
     upsertPriceHistory: function(id, priceHistory, callback){
         var self = this;
         callback = callback || noop;
-        id = self.normalizeId(id);
         if (!id) return callback ("upsertPriceHistory: id not found");
         if (!self.db || !self.dbMarketPriceHistory) return callback("upsertPriceHistory: db not found");
      
@@ -311,7 +289,6 @@ module.exports = {
      upsertAccountTrades: function(account, trades, callback){
         var self = this;
         callback = callback || noop;
-        account = self.normalizeId(account);
         if (!account) return callback ("upsertAccountTrades: account not found");
         if (!self.db || !self.dbAccountTrades) return callback("upsertAccountTrades: db not found");
      
