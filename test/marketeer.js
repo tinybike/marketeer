@@ -57,7 +57,7 @@ var doc1 = { network: '2',
   tradingFee: '0.03',
   numOutcomes: 2,
   tradingPeriod: 4893087,
-  branchId: '1',
+  branchID: '1',
   numEvents: 1,
   cumulativeScale: '1',
   creationTime: 1467926059,
@@ -87,7 +87,7 @@ var doc2 = { network: '2',
   tradingFee: '0.03',
   numOutcomes: 2,
   tradingPeriod: 4893087,
-  branchId: '1',
+  branchID: '1',
   numEvents: 1,
   cumulativeScale: '1',
   creationTime: 1467926059,
@@ -117,7 +117,7 @@ var doc3 = { network: '2',
   tradingFee: '0.03',
   numOutcomes: 2,
   tradingPeriod: 4893087,
-  branchId: '2',
+  branchID: '2',
   numEvents: 1,
   cumulativeScale: '1',
   creationTime: 1467926059,
@@ -147,7 +147,7 @@ var doc4 = { network: '2',
   tradingFee: '0.03',
   numOutcomes: 2,
   tradingPeriod: 4893087,
-  branchId: '3',
+  branchID: '3',
   numEvents: 1,
   cumulativeScale: '1',
   creationTime: 1467926059,
@@ -578,7 +578,7 @@ describe("watch", function () {
                 var expDate = new Date("7/2/5099").getTime() / 1000;
                 var tags = ['a', 'b', 'c'];
                 mark.augur.createSingleEventMarket({
-                    branchId: branch,
+                    branch: branch,
                     description: desc,
                     expDate: expDate,
                     minValue: 1,
@@ -652,7 +652,7 @@ describe("watch", function () {
                 var expDate = new Date("7/2/5099").getTime() / 1000;
                 var tags = ['a', 'b', 'c'];
                 mark.augur.createSingleEventMarket({
-                    branchId: branch,
+                    branch: branch,
                     description: desc,
                     expDate: expDate,
                     minValue: 1,
@@ -768,7 +768,7 @@ describe("watch", function () {
                 var expDate = new Date("7/2/5099").getTime() / 1000;
                 var tags = ['a', 'b', 'c'];
                 mark.augur.createSingleEventMarket({
-                    branchId: branch,
+                    branch: branch,
                     description: desc,
                     expDate: expDate,
                     minValue: 1,
@@ -875,7 +875,7 @@ describe("watch", function () {
                 var expDate = new Date("7/2/5099").getTime() / 1000;
                 var tags = ['a', 'b', 'c'];
                 mark.augur.createSingleEventMarket({
-                    branchId: branch,
+                    branch: branch,
                     description: desc,
                     expDate: expDate,
                     minValue: 1,
@@ -989,7 +989,7 @@ describe("watch", function () {
                 var makerFee = ".02";
                 var takerFee = ".05";
                 mark.augur.createSingleEventMarket({
-                    branchId: branch,
+                    branch: branch,
                     description: desc,
                     expDate: expDate,
                     minValue: 1,
@@ -1011,7 +1011,7 @@ describe("watch", function () {
                         var counter = 0;
                         var id = r["callReturn"];
                         mark.augur.updateTradingFee({
-                            branchId: branch,
+                            branch: branch,
                             market: id,
                             makerFee: ".019", 
                             takerFee: ".049",
@@ -1049,5 +1049,3 @@ describe("watch", function () {
         });
     });
 });
-
-

@@ -38,7 +38,7 @@ module.exports = {
                   description: 1, 
                   makerFee: 1, 
                   takerFee: 1,
-                  branchId: 1 },
+                  branchID: 1 },
 
     connect: function (config, callback) {
         var self = this;
@@ -257,7 +257,7 @@ module.exports = {
         if (!id) return callback ("upsertMarketInfo: id not found");
         if (!self.db || !self.dbMarketInfo || !self.dbMarketInfoTruncated) return callback("upsertMarketInfo: db not found");
         if (!market) return callback("upsertMarketInfo: market data not found");
-        if (!market.branchId) return callback("upsertMarketInfo: branchId not found in market data");
+        if (!market.branchID) return callback("upsertMarketInfo: branchID not found in market data");
 
         delete market.sortOrder;
         //Storing data twice - once with full market info, another with truncated data
